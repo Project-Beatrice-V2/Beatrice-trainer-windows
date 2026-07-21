@@ -25,6 +25,30 @@ A high-performance, hardware-aware desktop Web application for training custom r
 
 ---
 
+## 🖼️ Interface Showcase
+
+<p align="center">
+  <img src="assets/dashboard.png" alt="Beatrice V2 Dashboard Overview" width="95%" style="border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);" />
+  <br><sub><b>Dashboard Overview</b> — Live hardware monitor, memory allocation gauges, and system diagnostics</sub>
+</p>
+
+<p align="center">
+  <img src="assets/dataset.png" alt="Beatrice V2 Dataset Manager" width="95%" style="border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);" />
+  <br><sub><b>Dataset Manager</b> — Single-choice import selector (Local Audio Drag & Drop, Hugging Face, Kaggle)</sub>
+</p>
+
+<p align="center">
+  <img src="assets/training.png" alt="Beatrice V2 Training Control" width="95%" style="border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);" />
+  <br><sub><b>Training Control</b> — Hardware auto-tuning, custom training steps, and live console logger</sub>
+</p>
+
+<p align="center">
+  <img src="assets/models.png" alt="Cloud Training Launchpad" width="95%" style="border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);" />
+  <br><sub><b>Cloud Training Launchpad</b> — One-click Google Colab and Kaggle launch cards with local .ipynb downloads</sub>
+</p>
+
+---
+
 ## ⚡ Quick Start
 
 ### 📋 Prerequisites
