@@ -1,0 +1,25 @@
+# Python / Virtual Environment
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Large Model / Dataset directories
+beatrice-trainer/
+mac_repo/
+webui_repo/
+*.zip
+*.pt
+*.pt.gz
+*.wav
+*.mp3
+
+# IDE / Gemini files
+.idea/
+.vscode/
+.antigravity/
