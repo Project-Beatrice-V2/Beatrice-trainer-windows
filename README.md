@@ -43,7 +43,7 @@ A high-performance, hardware-aware desktop Web application for training custom r
 </p>
 
 <p align="center">
-  <img src="assets/models.png" alt="Cloud Training Launchpad" width="95%" style="border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);" />
+  <img src="assets/colab.png" alt="Cloud Training Launchpad" width="95%" style="border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);" />
   <br><sub><b>Cloud Training Launchpad</b> — One-click Google Colab and Kaggle launch cards with local .ipynb downloads</sub>
 </p>
 
