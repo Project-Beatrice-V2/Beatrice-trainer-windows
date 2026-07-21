@@ -519,6 +519,10 @@ html, body {
   overflow: hidden;
 }
 
+[data-theme="light"] .progress-bar-track {
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
 .progress-bar-fill {
   height: 100%;
   background-color: var(--accent-primary);
@@ -537,7 +541,7 @@ html, body {
   line-height: 1.6;
   max-height: 320px;
   overflow-y: auto;
-  color: var(--text-secondary);
+  color: #e2e8f0;
 }
 
 .log-line {
@@ -546,10 +550,21 @@ html, body {
   word-break: break-all;
 }
 
-.log-info { color: var(--text-secondary); }
-.log-success { color: var(--success-text); }
-.log-warn { color: var(--warning-color); }
-.log-error { color: var(--danger-color); }
+.log-info { color: #94a3b8; }
+.log-success { color: #34d399; }
+.log-warn { color: #fbbf24; }
+.log-error { color: #f87171; }
+
+[data-theme="light"] .log-console {
+  background-color: #f8fafc;
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #0f172a;
+}
+
+[data-theme="light"] .log-info { color: #334155; }
+[data-theme="light"] .log-success { color: #059669; }
+[data-theme="light"] .log-warn { color: #d97706; }
+[data-theme="light"] .log-error { color: #dc2626; }
 
 /* Badges */
 .badge {
