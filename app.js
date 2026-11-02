@@ -1,24 +1,37 @@
 /* ============================================
-   Beatrice V2 Trainer — Frontend Application
+   Beatrice Trainer: frontend application
+   Talks to the local FastAPI server (server.py).
    ============================================ */
 
 // ---------- Configuration ----------
-const defaultApiUrl = window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')
-  ? window.location.origin
-  : 'http://localhost:8000';
+const isLocalOrigin = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(window.location.origin);
+const defaultApiUrl = isLocalOrigin ? window.location.origin : 'http://localhost:8000';
+
+function readStorage(key, fallback) {
+  try { return localStorage.getItem(key) || fallback; } catch { return fallback; }
+}
+function writeStorage(key, value) {
+  try { localStorage.setItem(key, value); } catch { /* private mode */ }
+}
 
 const CONFIG = {
-  apiUrl: localStorage.getItem('beatrice_api_url') || defaultApiUrl,
+  apiUrl: readStorage('beatrice_api_url', defaultApiUrl),
   pollInterval: 2000,
-  maxLogLines: 200,
+  maxLogLines: 400,
 };
+
+const PLATFORM = document.documentElement.dataset.platform || 'mac';
 
 // ---------- State ----------
 const state = {
   currentPage: 'dashboard',
-  serverOnline: false,
+  serverOnline: null,
+  status: null,
+  autoConfig: null,
   training: {
+    phase: 'idle',          // idle | running | completed | failed | stopped | ended
     active: false,
+    speaker: null,
     step: 0,
     totalSteps: 10000,
     loss: null,
@@ -26,81 +39,128 @@ const state = {
     startTime: null,
     stepsPerSec: null,
     memoryUsageMb: null,
+    stopRequested: false,
+    error: null,
   },
   speakers: [],
   models: [],
-  uploadQueue: [],
+};
+
+const $ = (id) => document.getElementById(id);
+
+// ---------- Icons (inline SVG, no emoji in UI chrome) ----------
+const ICONS = {
+  info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+  success: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+  warning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+  error: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+  close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+  mic: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>',
+  box: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>',
+  file: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+  download: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+  trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
 };
 
 // ---------- Navigation ----------
+const PAGES = ['dashboard', 'dataset', 'training', 'models', 'colab', 'settings'];
+
 function navigateTo(page) {
-  // Update state
+  if (!PAGES.includes(page)) page = 'dashboard';
   state.currentPage = page;
 
-  // Update nav items
-  document.querySelectorAll('.nav-item').forEach(item => {
-    item.classList.toggle('active', item.dataset.page === page);
+  document.querySelectorAll('.nav-item[data-page]').forEach(item => {
+    const active = item.dataset.page === page;
+    item.classList.toggle('active', active);
+    if (active) item.setAttribute('aria-current', 'page');
+    else item.removeAttribute('aria-current');
   });
 
-  // Update page views
   document.querySelectorAll('.page-view').forEach(view => {
     view.classList.toggle('active', view.id === `page-${page}`);
   });
 
-  // Page-specific init
+  if (window.location.hash !== `#${page}`) {
+    history.replaceState(null, '', `#${page}`);
+  }
+  window.scrollTo(0, 0);
+
   switch (page) {
     case 'dashboard': refreshDashboard(); break;
     case 'dataset': refreshDataset(); break;
-    case 'training': refreshTrainingSpeakers(); break;
+    case 'training': refreshTrainingSpeakers(); requestAnimationFrame(drawLossChart); break;
     case 'models': refreshModels(); break;
+    case 'settings': renderSettings(); break;
   }
 }
 
-// Set up nav clicks
 document.querySelectorAll('.nav-item[data-page]').forEach(item => {
   item.addEventListener('click', () => navigateTo(item.dataset.page));
 });
 
+window.addEventListener('hashchange', () => {
+  const page = window.location.hash.replace('#', '');
+  if (PAGES.includes(page) && page !== state.currentPage) navigateTo(page);
+});
+
 // ---------- API Helper ----------
+function errorDetail(data, status) {
+  const detail = data && data.detail;
+  if (!detail) return `HTTP ${status}`;
+  if (typeof detail === 'string') return detail;
+  if (Array.isArray(detail)) return detail.map(d => d.msg || JSON.stringify(d)).join('; ');
+  return JSON.stringify(detail);
+}
+
 async function api(endpoint, options = {}) {
+  const url = `${CONFIG.apiUrl}${endpoint}`;
+  let response;
   try {
-    const url = `${CONFIG.apiUrl}${endpoint}`;
-    const response = await fetch(url, {
-      headers: { 'Content-Type': 'application/json', ...options.headers },
+    response = await fetch(url, {
       ...options,
+      headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
     });
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || `HTTP ${response.status}`);
-    }
-    return await response.json();
-  } catch (err) {
-    if (err.message.includes('Failed to fetch') || err.message.includes('NetworkError')) {
-      setServerStatus(false);
-    }
+  } catch (networkErr) {
+    setServerStatus(false);
+    const err = new Error('Cannot reach the trainer server. Is it still running?');
+    err.network = true;
     throw err;
   }
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    const err = new Error(cleanText(errorDetail(data, response.status)));
+    err.status = response.status;
+    throw err;
+  }
+  return response.json();
 }
 
 // ---------- Server Status ----------
 function setServerStatus(online) {
+  const changed = state.serverOnline !== online;
   state.serverOnline = online;
-  const dot = document.getElementById('server-status-dot');
-  const text = document.getElementById('server-status-text');
-  if (online) {
-    dot.classList.remove('offline');
-    text.textContent = 'Server Online';
-  } else {
-    dot.classList.add('offline');
-    text.textContent = 'Server Offline';
+  const dot = $('server-status-dot');
+  const text = $('server-status-text');
+  dot.classList.toggle('online', online);
+  dot.classList.toggle('offline', !online);
+  text.textContent = online ? 'Server online' : 'Server offline';
+
+  if (!online) {
+    $('sys-server').innerHTML = badge('Offline', 'danger');
+    const memBadge = $('mem-status-badge');
+    memBadge.className = 'badge badge-dot';
+    memBadge.textContent = 'Offline';
   }
+  return changed;
 }
 
 async function checkServerStatus() {
   try {
     const data = await api('/api/status');
-    setServerStatus(true);
+    const cameBack = setServerStatus(true) && state.status !== null;
+    state.status = data;
     updateSystemInfo(data);
+    if (cameBack) refreshDashboard();
     return data;
   } catch {
     setServerStatus(false);
@@ -108,522 +168,543 @@ async function checkServerStatus() {
   }
 }
 
+function computeLabel(compute) {
+  switch ((compute || '').toLowerCase()) {
+    case 'mps': return 'Apple GPU (MPS)';
+    case 'cuda': return 'NVIDIA GPU (CUDA)';
+    case 'cpu': return 'CPU only';
+    default: return compute ? String(compute).toUpperCase() : 'Unknown';
+  }
+}
+
+function badge(text, variant = '', withDot = false) {
+  const cls = ['badge', variant ? `badge-${variant}` : '', withDot ? 'badge-dot' : ''].filter(Boolean).join(' ');
+  return `<span class="${cls}">${escapeHtml(text)}</span>`;
+}
+
 function updateSystemInfo(data) {
   if (!data) return;
-  const el = (id) => document.getElementById(id);
-  el('stat-device').textContent = data.device || 'System';
-  el('stat-device-sub').textContent = data.compute || 'CPU';
-  el('sys-platform').textContent = data.platform || 'System';
-  el('sys-compute').textContent = data.compute || 'CPU';
-  el('sys-beatrice').innerHTML = data.beatrice_installed 
-    ? '<span class="badge badge-success" style="display:inline-flex; align-items:center; gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Installed</span>' 
-    : '<span class="badge badge-danger" style="display:inline-flex; align-items:center; gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Not found</span>';
-  el('sys-server').innerHTML = '<span class="badge badge-success" style="display:inline-flex; align-items:center; gap:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Connected</span>';
+  $('stat-device').textContent = data.gpu_name || data.device || 'Unknown';
+  $('stat-device-sub').textContent = computeLabel(data.compute) + (data.torch_version ? ` · PyTorch ${data.torch_version}` : '');
+  $('sys-platform').textContent = data.platform || 'Unknown';
+  $('sys-compute').textContent = computeLabel(data.compute);
+  $('sys-beatrice').innerHTML = data.beatrice_installed ? badge('Installed', 'success') : badge('Not found', 'danger');
+  $('sys-server').innerHTML = badge('Connected', 'success');
+  renderSettings();
 }
 
 async function refreshSystemInfo() {
-  await checkServerStatus();
-  showToast('System info refreshed', 'info');
+  const data = await checkServerStatus();
+  if (data) showToast('System info refreshed', 'info');
+  else showToast('Cannot reach the trainer server', 'error');
 }
 
 // ---------- Dashboard ----------
 async function refreshDashboard() {
+  if (state.serverOnline === false) return;
   try {
-    const status = await checkServerStatus();
-    if (!status) return;
-
-    // Update stats
-    const dataset = await api('/api/dataset/list').catch(() => ({ speakers: [] }));
-    const models = await api('/api/models/list').catch(() => ({ models: [] }));
-
-    state.speakers = dataset.speakers || [];
-    state.models = models.models || [];
-
-    document.getElementById('stat-speakers').textContent = state.speakers.length;
-    document.getElementById('stat-files').textContent = state.speakers.reduce((sum, s) => sum + (s.file_count || 0), 0);
-    document.getElementById('stat-models').textContent = state.models.length;
+    const [dataset, models] = await Promise.all([
+      api('/api/dataset/list').catch(() => null),
+      api('/api/models/list').catch(() => null),
+    ]);
+    if (dataset) state.speakers = dataset.speakers || [];
+    if (models) state.models = models.models || [];
+    updateDashboardStats();
   } catch {
-    // Server likely offline
+    // server offline; status dot already shows it
   }
+}
+
+function updateDashboardStats() {
+  $('stat-speakers').textContent = state.speakers.length;
+  $('stat-files').textContent = totalFiles().toLocaleString();
+  $('stat-models').textContent = state.models.length;
+}
+
+function totalFiles() {
+  return state.speakers.reduce((sum, s) => sum + (s.file_count || 0), 0);
 }
 
 // ---------- Dataset Management ----------
 function setupDropZone() {
-  const zone = document.getElementById('drop-zone');
-  const input = document.getElementById('file-input');
+  const zone = $('drop-zone');
+  const input = $('file-input');
+  const isAudio = (f) => /\.(wav|zip)$/i.test(f.name);
 
   zone.addEventListener('click', () => input.click());
-
-  zone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    zone.classList.add('drag-over');
+  zone.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); }
   });
-
-  zone.addEventListener('dragleave', () => {
-    zone.classList.remove('drag-over');
-  });
-
+  zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
   zone.addEventListener('drop', (e) => {
     e.preventDefault();
     zone.classList.remove('drag-over');
-    const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.wav') || f.name.endsWith('.zip'));
+    const all = Array.from(e.dataTransfer.files);
+    const files = all.filter(isAudio);
     if (files.length) uploadFiles(files);
-    else showToast('Please drop WAV or ZIP files only', 'warning');
+    if (files.length < all.length) showToast(`Skipped ${all.length - files.length} file(s): only WAV and ZIP files are accepted`, 'warning');
   });
 
   input.addEventListener('change', () => {
-    const files = Array.from(input.files);
+    const files = Array.from(input.files).filter(isAudio);
     if (files.length) uploadFiles(files);
     input.value = '';
   });
 
-  // Update badges when speaker name changes
-  const speakerInput = document.getElementById('speaker-name');
+  const speakerInput = $('speaker-name');
   speakerInput.addEventListener('input', () => {
-    const val = speakerInput.value || 'unnamed';
-    const activeBadge = document.getElementById('active-speaker-badge');
-    if (activeBadge) activeBadge.textContent = `Speaker: ${val}`;
-    const uploadBadge = document.getElementById('upload-speaker-badge');
-    if (uploadBadge) uploadBadge.textContent = `Speaker: ${val}`;
-    const hfBadge = document.getElementById('hf-speaker-badge');
-    if (hfBadge) hfBadge.textContent = `Speaker: ${val}`;
-    const kaggleBadge = document.getElementById('kaggle-speaker-badge');
-    if (kaggleBadge) kaggleBadge.textContent = `Speaker: ${val}`;
+    const val = sanitizeSpeaker(speakerInput.value) || 'unnamed';
+    $('active-speaker-badge').textContent = `Speaker: ${val}`;
   });
+}
+
+function sanitizeSpeaker(name) {
+  // Mirrors the server: letters, numbers, dash and underscore only.
+  return (name || '').trim().replace(/[^\p{L}\p{N}_-]/gu, '');
+}
+
+function getSpeakerName() {
+  const raw = $('speaker-name').value;
+  const clean = sanitizeSpeaker(raw);
+  if (!clean) {
+    showToast('Enter a speaker name first', 'warning');
+    $('speaker-name').focus();
+    return null;
+  }
+  if (clean !== raw.trim()) {
+    $('speaker-name').value = clean;
+    showToast(`Speaker name saved as "${clean}"`, 'info');
+  }
+  return clean;
 }
 
 function switchImportMethod(method) {
-  const methods = ['local', 'hf', 'kaggle'];
-  methods.forEach(m => {
-    const tab = document.getElementById(`tab-method-${m}`);
-    const container = document.getElementById(`import-container-${m}`);
-    if (tab) tab.classList.toggle('active', m === method);
-    if (container) container.style.display = (m === method) ? 'block' : 'none';
+  ['local', 'hf', 'kaggle'].forEach(m => {
+    const tab = $(`tab-method-${m}`);
+    const container = $(`import-container-${m}`);
+    const active = m === method;
+    tab.classList.toggle('active', active);
+    tab.setAttribute('aria-selected', String(active));
+    container.hidden = !active;
   });
 }
 
-async function importFromHF() {
-  const speaker = document.getElementById('speaker-name').value.trim();
-  const repoId = document.getElementById('hf-repo-id').value.trim();
-  const btn = document.getElementById('btn-import-hf');
-  const progressContainer = document.getElementById('hf-import-progress-container');
-  const progressStatus = document.getElementById('hf-import-status');
-  const progressPct = document.getElementById('hf-import-progress-pct');
-  const progressBar = document.getElementById('hf-import-progress-bar');
-
-  if (!speaker) {
-    showToast('Please enter a speaker name first', 'warning');
-    return;
+function setButtonBusy(btn, busy, busyLabel) {
+  if (!btn) return;
+  if (busy) {
+    if (!btn.dataset.label) btn.dataset.label = btn.innerHTML;
+    btn.disabled = true;
+    btn.classList.add('is-loading');
+    btn.innerHTML = `<span class="spinner"></span>${escapeHtml(busyLabel)}`;
+  } else {
+    btn.disabled = false;
+    btn.classList.remove('is-loading');
+    if (btn.dataset.label) btn.innerHTML = btn.dataset.label;
+    delete btn.dataset.label;
   }
-  if (!repoId) {
-    showToast('Please enter a Hugging Face repository ID or URL', 'warning');
-    return;
+}
+
+function setProgress(prefix, { show, status, pct, variant } = {}) {
+  const container = $(`${prefix}-progress-container`);
+  if (!container) return;
+  if (show !== undefined) container.hidden = !show;
+  if (status !== undefined) $(`${prefix}-status`).textContent = status;
+  if (pct !== undefined) {
+    const p = Math.max(0, Math.min(100, Math.round(pct)));
+    $(`${prefix}-progress-pct`).textContent = `${p}%`;
+    $(`${prefix}-progress-bar`).style.width = `${p}%`;
   }
+  const bar = $(`${prefix}-progress-bar`);
+  bar.classList.toggle('is-error', variant === 'error');
+  bar.classList.toggle('is-done', variant === 'done');
+}
 
-  showToast(`Starting Hugging Face download for "${repoId}"... Please wait.`, 'info');
-  btn.disabled = true;
-  btn.textContent = '📥 Importing...';
+async function runImport({ kind, endpoint, body, button, label }) {
+  const prefix = `${kind}-import`;
+  setButtonBusy(button, true, 'Importing...');
+  setProgress(prefix, { show: true, status: `Starting ${label} import...`, pct: 0, variant: null });
 
-  if (progressContainer) {
-    progressContainer.style.display = 'block';
-    progressStatus.textContent = 'Initializing import...';
-    progressPct.textContent = '0%';
-    progressBar.style.width = '0%';
-  }
-
-  let pollInterval = null;
-  const startPolling = () => {
-    pollInterval = setInterval(async () => {
+  let polling = true;
+  const poll = async () => {
+    while (polling) {
       try {
         const progress = await api('/api/dataset/import-progress');
-        if (progress && progress.active) {
-          progressStatus.textContent = progress.status || 'Importing...';
-          let percent = 0;
-          if (progress.total_count > 0) {
-            percent = Math.min(100, Math.round((progress.extracted_count / progress.total_count) * 100));
-          }
-          progressPct.textContent = `${percent}%`;
-          progressBar.style.width = `${percent}%`;
+        if (polling && progress && progress.active) {
+          const pct = progress.total_count > 0 ? (progress.extracted_count / progress.total_count) * 100 : 0;
+          setProgress(prefix, { status: cleanText(progress.status) || 'Importing...', pct });
         }
-      } catch (e) {
-        console.error('Error polling import progress:', e);
-      }
-    }, 800);
+      } catch { /* keep trying */ }
+      await sleep(800);
+    }
   };
-
-  startPolling();
+  poll();
 
   try {
-    const response = await api('/api/dataset/import-hf', {
-      method: 'POST',
-      body: JSON.stringify({ repo_id: repoId, speaker: speaker }),
-    });
-    
-    // Set progress elements to 100% on success
-    if (progressStatus) progressStatus.textContent = 'Success!';
-    if (progressPct) progressPct.textContent = '100%';
-    if (progressBar) progressBar.style.width = '100%';
-    
-    showToast(response.message || 'Successfully imported dataset!', 'success');
+    const response = await api(endpoint, { method: 'POST', body: JSON.stringify(body) });
+    polling = false;
+    setProgress(prefix, { status: 'Done', pct: 100, variant: 'done' });
+    showToast(cleanText(response.message) || 'Dataset imported', 'success');
     refreshDataset();
+    setTimeout(() => setProgress(prefix, { show: false }), 2500);
+    return true;
   } catch (err) {
-    showToast(`Failed to import dataset: ${err.message}`, 'error');
+    polling = false;
+    setProgress(prefix, { status: err.message, variant: 'error' });
+    showToast(`Import failed: ${err.message}`, 'error');
+    return false;
   } finally {
-    if (pollInterval) {
-      clearInterval(pollInterval);
-    }
-    btn.disabled = false;
-    btn.textContent = '⚡ Import Dataset';
-    if (progressContainer) {
-      setTimeout(() => {
-        progressContainer.style.display = 'none';
-      }, 2000);
-    }
+    setButtonBusy(button, false);
   }
+}
+
+async function importFromHF() {
+  const speaker = getSpeakerName();
+  if (!speaker) return;
+  const repoId = $('hf-repo-id').value.trim();
+  if (!repoId) {
+    showToast('Enter a Hugging Face dataset ID or URL', 'warning');
+    $('hf-repo-id').focus();
+    return;
+  }
+  await runImport({
+    kind: 'hf',
+    endpoint: '/api/dataset/import-hf',
+    body: { repo_id: repoId, speaker },
+    button: $('btn-import-hf'),
+    label: 'Hugging Face',
+  });
 }
 
 async function loadKaggleConfig() {
   try {
     const config = await api('/api/dataset/kaggle-config');
     if (config && config.configured) {
-      const usernameInput = document.getElementById('kaggle-username');
-      const keyInput = document.getElementById('kaggle-key');
-      if (usernameInput) usernameInput.value = config.username || '';
-      if (keyInput && config.key_configured) {
-        keyInput.value = '••••••••••••••••';
+      if (config.username && !$('kaggle-username').value) $('kaggle-username').value = config.username;
+      if (config.key_configured) {
+        $('kaggle-key').value = '';
+        $('kaggle-key').placeholder = 'Saved. Leave blank to keep it';
+        $('kaggle-key-hint').textContent = 'Using the key saved in ~/.kaggle/kaggle.json. Enter a new one to replace it.';
       }
     }
-  } catch (err) {
-    console.error('Failed to load Kaggle config:', err);
+  } catch {
+    // optional
   }
 }
 
 async function importFromKaggle() {
-  const speaker = document.getElementById('speaker-name').value.trim();
-  const datasetRef = document.getElementById('kaggle-dataset-ref').value.trim();
-  const username = document.getElementById('kaggle-username').value.trim();
-  const key = document.getElementById('kaggle-key').value.trim();
-  const btn = document.getElementById('btn-import-kaggle');
-  const progressContainer = document.getElementById('kaggle-import-progress-container');
-  const progressStatus = document.getElementById('kaggle-import-status');
-  const progressPct = document.getElementById('kaggle-import-progress-pct');
-  const progressBar = document.getElementById('kaggle-import-progress-bar');
-
-  if (!speaker) {
-    showToast('Please enter a speaker name first', 'warning');
-    return;
-  }
+  const speaker = getSpeakerName();
+  if (!speaker) return;
+  const datasetRef = $('kaggle-dataset-ref').value.trim();
   if (!datasetRef) {
-    showToast('Please enter a Kaggle dataset reference or URL', 'warning');
+    showToast('Enter a Kaggle dataset reference or URL', 'warning');
+    $('kaggle-dataset-ref').focus();
     return;
   }
-
-  showToast(`Starting Kaggle download for "${datasetRef}"... Please wait.`, 'info');
-  btn.disabled = true;
-  btn.textContent = '📥 Importing...';
-
-  if (progressContainer) {
-    progressContainer.style.display = 'block';
-    progressStatus.textContent = 'Initializing Kaggle import...';
-    progressPct.textContent = '0%';
-    progressBar.style.width = '0%';
-  }
-
-  let pollInterval = null;
-  const startPolling = () => {
-    pollInterval = setInterval(async () => {
-      try {
-        const progress = await api('/api/dataset/import-progress');
-        if (progress && progress.active) {
-          progressStatus.textContent = progress.status || 'Importing...';
-          let percent = 0;
-          if (progress.total_count > 0) {
-            percent = Math.min(100, Math.round((progress.extracted_count / progress.total_count) * 100));
-          }
-          progressPct.textContent = `${percent}%`;
-          progressBar.style.width = `${percent}%`;
-        }
-      } catch (e) {
-        console.error('Error polling import progress:', e);
-      }
-    }, 800);
-  };
-
-  startPolling();
-
-  try {
-    const response = await api('/api/dataset/import-kaggle', {
-      method: 'POST',
-      body: JSON.stringify({
-        dataset_ref: datasetRef,
-        username: username,
-        key: key,
-        speaker: speaker
-      }),
-    });
-    
-    if (progressStatus) progressStatus.textContent = 'Success!';
-    if (progressPct) progressPct.textContent = '100%';
-    if (progressBar) progressBar.style.width = '100%';
-    
-    showToast(response.message || 'Successfully imported dataset!', 'success');
-    refreshDataset();
-    loadKaggleConfig();
-  } catch (err) {
-    showToast(`Failed to import dataset: ${err.message}`, 'error');
-  } finally {
-    if (pollInterval) {
-      clearInterval(pollInterval);
-    }
-    btn.disabled = false;
-    btn.textContent = '⚡ Import Dataset';
-    if (progressContainer) {
-      setTimeout(() => {
-        progressContainer.style.display = 'none';
-      }, 2000);
-    }
-  }
+  const ok = await runImport({
+    kind: 'kaggle',
+    endpoint: '/api/dataset/import-kaggle',
+    body: {
+      dataset_ref: datasetRef,
+      username: $('kaggle-username').value.trim(),
+      key: $('kaggle-key').value.trim(),
+      speaker,
+    },
+    button: $('btn-import-kaggle'),
+    label: 'Kaggle',
+  });
+  if (ok) loadKaggleConfig();
 }
 
 async function uploadFiles(files) {
-  const speaker = document.getElementById('speaker-name').value.trim();
-  if (!speaker) {
-    showToast('Please enter a speaker name first', 'warning');
-    return;
-  }
+  const speaker = getSpeakerName();
+  if (!speaker) return;
 
-  showToast(`Uploading ${files.length} file(s)...`, 'info');
+  let done = 0;
+  let succeeded = 0;
+  const failures = [];
+  setProgress('upload', { show: true, status: `Uploading ${files.length} file(s) to ${speaker}...`, pct: 0, variant: null });
 
-  let successCount = 0;
   for (const file of files) {
     try {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('speaker', speaker);
-
-      const response = await fetch(`${CONFIG.apiUrl}/api/dataset/upload`, {
-        method: 'POST',
-        body: formData,
-      });
+      let response;
+      try {
+        response = await fetch(`${CONFIG.apiUrl}/api/dataset/upload`, { method: 'POST', body: formData });
+      } catch {
+        setServerStatus(false);
+        throw new Error('server unreachable');
+      }
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        throw new Error(errData.detail || `HTTP ${response.status}`);
+        throw new Error(cleanText(errorDetail(errData, response.status)));
       }
-      const data = await response.json();
-      showToast(data.message, 'success');
-      successCount++;
+      succeeded++;
     } catch (err) {
-      showToast(`Failed to upload ${file.name}: ${err.message}`, 'error');
+      failures.push(`${file.name}: ${err.message}`);
     }
+    done++;
+    setProgress('upload', { status: `Uploaded ${done} of ${files.length}`, pct: (done / files.length) * 100 });
   }
 
-  if (successCount > 0) {
-    refreshDataset();
+  if (failures.length) {
+    setProgress('upload', { status: `${failures.length} of ${files.length} failed`, variant: 'error' });
+    showToast(`Upload failed for ${failures.length} file(s). ${failures[0]}`, 'error');
+  } else {
+    setProgress('upload', { status: `Uploaded ${files.length} file(s) to ${speaker}`, variant: 'done' });
+    showToast(`Uploaded ${files.length} file(s) to ${speaker}`, 'success');
   }
+  setTimeout(() => setProgress('upload', { show: false }), 3000);
+  if (succeeded > 0) refreshDataset();
 }
 
 async function refreshDataset() {
   try {
     const data = await api('/api/dataset/list');
     state.speakers = data.speakers || [];
-    renderSpeakersList();
-    document.getElementById('file-count-label').textContent =
-      `${state.speakers.reduce((s, sp) => s + (sp.file_count || 0), 0)} files across ${state.speakers.length} speakers`;
-    
-    // Update dashboard stats in DOM if present
-    const statSpeakers = document.getElementById('stat-speakers');
-    const statFiles = document.getElementById('stat-files');
-    if (statSpeakers) statSpeakers.textContent = state.speakers.length;
-    if (statFiles) statFiles.textContent = state.speakers.reduce((sum, s) => sum + (s.file_count || 0), 0);
   } catch {
-    // Render empty
-    renderSpeakersList();
+    // keep last known list
   }
+  renderSpeakersList();
+  const n = state.speakers.length;
+  $('file-count-label').textContent = `${totalFiles().toLocaleString()} files · ${n} speaker${n === 1 ? '' : 's'}`;
+  updateDashboardStats();
 }
 
 function renderSpeakersList() {
-  const container = document.getElementById('dataset-speakers-list');
+  const container = $('dataset-speakers-list');
   if (!state.speakers.length) {
     container.innerHTML = `
       <div class="empty-state">
-        <div class="empty-state-icon">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-        </div>
-        <h3>No datasets uploaded yet</h3>
-        <p class="text-muted">Upload WAV files above to create your speaker dataset.</p>
+        <div class="empty-state-icon">${ICONS.mic}</div>
+        <h3>No datasets yet</h3>
+        <p>Add audio above to create your first speaker.</p>
       </div>`;
     return;
   }
 
   container.innerHTML = state.speakers.map(sp => `
-    <div class="model-card" style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); margin-bottom: 8px;">
-      <div style="display: flex; align-items: center; gap: 12px;">
-        <div style="width: 36px; height: 36px; border-radius: var(--radius-sm); background: var(--accent-subtle); color: var(--accent-text); display: flex; align-items: center; justify-content: center;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
-        </div>
+    <div class="list-row">
+      <div class="list-row-main">
+        <div class="list-row-icon is-accent">${ICONS.mic}</div>
         <div>
-          <div class="model-name" style="font-weight: 600; color: var(--text-primary); font-size: 14px;">${escapeHtml(sp.name)}</div>
-          <div class="model-meta" style="font-size: 12px; color: var(--text-muted);">${sp.file_count || 0} WAV files${sp.duration ? ` • ${formatDuration(sp.duration)}` : ''}</div>
+          <div class="list-row-title">${escapeHtml(sp.name)}</div>
+          <div class="list-row-meta">${(sp.file_count || 0).toLocaleString()} WAV files${sp.duration ? ` · ${formatDuration(sp.duration)}` : ''}${sp.total_size ? ` · ${formatBytes(sp.total_size)}` : ''}</div>
         </div>
       </div>
-      <button class="btn btn-sm btn-danger" onclick="deleteSpeaker('${escapeHtml(sp.name)}')">Delete</button>
+      <div class="list-row-actions">
+        <button type="button" class="btn btn-sm btn-secondary" data-action="train-speaker" data-name="${escapeAttr(sp.name)}">Train</button>
+        <button type="button" class="btn btn-sm btn-danger" data-action="delete-speaker" data-name="${escapeAttr(sp.name)}">${ICONS.trash}Delete</button>
+      </div>
     </div>
   `).join('');
 }
 
+$('dataset-speakers-list').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-action]');
+  if (!btn) return;
+  const name = btn.dataset.name;
+  if (btn.dataset.action === 'delete-speaker') deleteSpeaker(name);
+  if (btn.dataset.action === 'train-speaker') {
+    navigateTo('training');
+    refreshTrainingSpeakers(name);
+  }
+});
+
 async function deleteSpeaker(name) {
-  if (!confirm(`Delete speaker "${name}" and all its audio files?`)) return;
+  const ok = await confirmDialog({
+    title: `Delete "${name}"?`,
+    message: 'This deletes the speaker and all of its audio files from this computer.',
+    confirmLabel: 'Delete speaker',
+  });
+  if (!ok) return;
   try {
-    await api(`/api/dataset/${name}`, { method: 'DELETE' });
-    showToast(`Deleted speaker: ${name}`, 'success');
+    await api(`/api/dataset/${encodeURIComponent(name)}`, { method: 'DELETE' });
+    showToast(`Deleted ${name}`, 'success');
     refreshDataset();
   } catch (err) {
-    showToast(`Error: ${err.message}`, 'error');
+    showToast(`Could not delete ${name}: ${err.message}`, 'error');
   }
 }
 
-// ---------- Training ----------
-async function refreshTrainingSpeakers() {
+// ---------- Training: setup ----------
+async function refreshTrainingSpeakers(preselect) {
+  const select = $('train-speaker');
+  const previous = preselect || select.value;
   try {
     const data = await api('/api/dataset/list');
     state.speakers = data.speakers || [];
-    const select = document.getElementById('train-speaker');
-    select.innerHTML = '<option value="">— Select Speaker —</option>' +
-      state.speakers.map(s => `<option value="${escapeHtml(s.name)}">${escapeHtml(s.name)} (${s.file_count} files)</option>`).join('');
+    select.innerHTML = `<option value="">${state.speakers.length ? 'Select a speaker' : 'No speakers yet: add a dataset first'}</option>` +
+      state.speakers.map(s => `<option value="${escapeAttr(s.name)}">${escapeHtml(s.name)} (${(s.file_count || 0).toLocaleString()} files)</option>`).join('');
+    if (previous && state.speakers.some(s => s.name === previous)) {
+      select.value = previous;
+      if (preselect) autoConfigureParams();
+    }
   } catch {
     // leave as-is
   }
-
-  // Check if training is active
-  try {
-    const status = await api('/api/train/status');
-    if (status.active) {
-      state.training.active = true;
-      showTrainingUI(true);
-      startTrainingPoll();
-    }
-  } catch {
-    // not training
-  }
+  if (!state.training.active) checkTrainingStatus();
 }
 
-function toggleAdvancedSettings() {
-  const block = document.getElementById('advanced-settings-block');
-  const btn = document.getElementById('btn-toggle-advanced');
-  if (block.style.display === 'none') {
-    block.style.display = 'block';
-    btn.textContent = '⚙️ Hide Advanced Hardware Settings';
-  } else {
-    block.style.display = 'none';
-    btn.textContent = '⚙️ Show Advanced Hardware Settings';
-  }
+function toggleAdvancedSettings(force) {
+  const block = $('advanced-settings-block');
+  const btn = $('btn-toggle-advanced');
+  const open = typeof force === 'boolean' ? force : block.hidden;
+  block.hidden = !open;
+  btn.setAttribute('aria-expanded', String(open));
+  btn.querySelector('span').textContent = open ? 'Hide advanced settings' : 'Show advanced settings';
 }
 
-async function autoConfigureParams() {
-  const speakerSelect = document.getElementById('train-speaker');
-  const speaker = speakerSelect.value;
+async function autoConfigureParams(manual = false) {
+  const speaker = $('train-speaker').value;
   if (!speaker) {
-    document.getElementById('config-empty-state').style.display = 'block';
-    document.getElementById('config-tuning-details').style.display = 'none';
-    document.getElementById('steps-recommended-badge').textContent = 'Auto: —';
+    $('config-empty-state').hidden = false;
+    $('config-tuning-details').hidden = true;
+    $('steps-recommended-badge').textContent = 'Auto: -';
+    if (manual) showToast('Select a speaker first', 'warning');
     return;
   }
 
   try {
     const config = await api('/api/train/auto-config');
-    
-    // Update recommended steps badge
-    const stepsBadge = document.getElementById('steps-recommended-badge');
-    if (stepsBadge) {
-      stepsBadge.textContent = `Auto: ${config.max_steps.toLocaleString()}`;
+    state.autoConfig = config;
+
+    $('steps-recommended-badge').textContent = `Auto: ${Number(config.max_steps).toLocaleString()}`;
+    $('train-steps').value = config.max_steps;
+    $('train-batch').value = config.batch_size;
+    $('train-grad-accum').value = config.gradient_accumulation_steps;
+    $('train-workers').value = config.num_workers;
+    $('train-mixed-precision').checked = !!config.mixed_precision;
+
+    $('config-empty-state').hidden = true;
+    $('config-tuning-details').hidden = false;
+    $('config-val-device').textContent = computeLabel(config.device);
+    $('config-val-batch').textContent = config.batch_size;
+    $('config-val-accum').textContent = config.gradient_accumulation_steps;
+    $('config-val-effective').textContent = config.effective_batch_size;
+
+    let seconds;
+    if (typeof config.estimated_time_minutes === 'number' && config.estimated_time_minutes > 0) {
+      seconds = config.estimated_time_minutes * 60;
+    } else {
+      const rate = config.device === 'cuda' ? 6.0 : (config.device === 'mps' ? 3.5 : 0.8);
+      seconds = config.max_steps / rate;
     }
-    document.getElementById('train-steps').value = config.max_steps;
+    $('config-val-time').textContent = `~${formatDuration(seconds >= 600 ? Math.round(seconds / 60) * 60 : seconds)}`;
 
-    // Set advanced inputs
-    document.getElementById('train-batch').value = config.batch_size;
-    document.getElementById('train-grad-accum').value = config.gradient_accumulation_steps;
-    document.getElementById('train-workers').value = config.num_workers;
-    document.getElementById('train-mixed-precision').checked = config.mixed_precision;
-    document.getElementById('train-compile').checked = config.compile_model;
+    const notes = (config.optimization_notes || []).map(cleanText).filter(Boolean);
+    $('config-opt-notes').innerHTML = notes.map(note => `<div class="note-item">${escapeHtml(note)}</div>`).join('');
 
-    // Show tuning card details
-    document.getElementById('config-empty-state').style.display = 'none';
-    const details = document.getElementById('config-tuning-details');
-    details.style.display = 'flex';
-    details.style.flexDirection = 'column';
-
-    document.getElementById('config-val-device').textContent = config.device.toUpperCase();
-    document.getElementById('config-val-batch').textContent = config.batch_size;
-    document.getElementById('config-val-accum').textContent = config.gradient_accumulation_steps;
-    document.getElementById('config-val-effective').textContent = config.effective_batch_size;
-
-    // Time estimate: based on steps and device speed
-    const stepsPerSecEst = config.device === 'cuda' ? 6.0 : (config.device === 'mps' ? 3.5 : 1.2);
-    document.getElementById('config-val-time').textContent = formatDuration(config.max_steps / stepsPerSecEst);
-
-    // Render notes
-    const notesContainer = document.getElementById('config-opt-notes');
-    notesContainer.innerHTML = config.optimization_notes.map(note => `
-      <div class="text-small" style="padding: 4px var(--space-sm); background: rgba(139, 92, 246, 0.05); border-left: 2px solid var(--accent-primary); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; color: var(--text-secondary); margin-bottom: 4px;">
-        ${escapeHtml(note)}
-      </div>
-    `).join('');
-
-    showToast('Applied hardware auto-tuning parameters.', 'success');
+    if (manual) showToast('Applied auto-tuned settings', 'success');
   } catch (err) {
-    showToast(`Tuning failed: ${err.message}`, 'error');
+    showToast(`Auto-tuning failed: ${err.message}`, 'error');
   }
 }
 
 async function pollMemoryUsage() {
   try {
     const data = await api('/api/system/memory');
-    
-    // Update RAM Progress Bar and text
-    const ramText = document.getElementById('ram-usage-text');
-    const ramBar = document.getElementById('ram-progress-bar');
-    if (ramText && ramBar) {
-      ramText.textContent = `${data.ram_used_gb.toFixed(1)} GB / ${data.ram_total_gb.toFixed(1)} GB (${data.ram_percent}%)`;
-      ramBar.style.width = `${data.ram_percent}%`;
+    const memBadge = $('mem-status-badge');
+    memBadge.className = 'badge badge-live badge-dot';
+    memBadge.textContent = 'Live';
+
+    if (typeof data.ram_total_gb === 'number' && typeof data.ram_used_gb === 'number') {
+      const pct = typeof data.ram_percent === 'number' ? data.ram_percent : (data.ram_used_gb / data.ram_total_gb) * 100;
+      $('ram-usage-text').textContent = `${data.ram_used_gb.toFixed(1)} / ${data.ram_total_gb.toFixed(1)} GB · ${Math.round(pct)}%`;
+      $('ram-progress-bar').style.width = `${Math.min(100, pct)}%`;
+      $('ram-progress-bar').classList.toggle('is-hot', pct >= 90);
     }
 
-    // Update MPS allocations
-    const mpsContainer = document.getElementById('mps-mem-container');
-    const mpsEmpty = document.getElementById('mps-mem-empty');
-    const mpsUsageText = document.getElementById('mps-usage-text');
-    const mpsDriverText = document.getElementById('mps-driver-text');
-
-    if (data.mps_allocated_gb !== undefined) {
-      if (mpsContainer) mpsContainer.style.display = 'block';
-      if (mpsEmpty) mpsEmpty.style.display = 'none';
-      if (mpsUsageText) mpsUsageText.textContent = `${data.mps_allocated_gb.toFixed(2)} GB Allocated`;
-      if (mpsDriverText) mpsDriverText.textContent = `Driver: ${data.mps_driver_allocated_gb.toFixed(2)} GB`;
-    } else {
-      if (mpsContainer) mpsContainer.style.display = 'none';
-      if (mpsEmpty) mpsEmpty.style.display = 'block';
+    // GPU memory: CUDA reports gpu_* fields, Apple MPS reports mps_* fields.
+    let shown = false;
+    const total = data.ram_total_gb;
+    if (data.gpu_backend === 'cuda' && typeof data.gpu_allocated_gb === 'number') {
+      $('gpu-mem-title').textContent = 'GPU memory (CUDA)';
+      const gpuTotal = data.gpu_total_gb || 0;
+      $('mps-usage-text').textContent = gpuTotal ? `${data.gpu_allocated_gb.toFixed(2)} / ${gpuTotal.toFixed(1)} GB` : `${data.gpu_allocated_gb.toFixed(2)} GB allocated`;
+      $('gpu-progress-bar').style.width = gpuTotal ? `${Math.min(100, (data.gpu_allocated_gb / gpuTotal) * 100)}%` : '0%';
+      $('mps-driver-text').textContent = 'Allocated by the server process. Training runs in its own process.';
+      shown = true;
+    } else if (typeof data.mps_allocated_gb === 'number') {
+      $('gpu-mem-title').textContent = 'GPU memory (MPS)';
+      $('mps-usage-text').textContent = `${data.mps_allocated_gb.toFixed(2)} GB allocated`;
+      const driver = typeof data.mps_driver_allocated_gb === 'number' ? data.mps_driver_allocated_gb : null;
+      $('gpu-progress-bar').style.width = (driver != null && total) ? `${Math.min(100, (driver / total) * 100)}%` : '0%';
+      $('mps-driver-text').textContent = driver != null
+        ? `Driver: ${driver.toFixed(2)} GB, server process only. A training run's usage shows in System RAM.`
+        : 'Server process only. A training run\'s usage shows in System RAM.';
+      shown = true;
     }
-  } catch (err) {
-    // Silent ignore
+    $('mps-mem-container').hidden = !shown;
+    $('mps-mem-empty').hidden = shown;
+  } catch {
+    // offline; status dot already shows it
   }
 }
 
+// ---------- Training: run ----------
+function trainingHelpFor(message) {
+  const m = (message || '').toLowerCase();
+  if (m.includes('not installed') || m.includes('not ready') || m.includes('not set up') || m.includes('setup') || (m.includes('not found') && m.includes('trainer'))) {
+    return 'The Beatrice trainer package is missing or incomplete. Open <button type="button" class="icon-btn" data-go="settings">Settings</button> and click Download or update trainer, or run the start script again.';
+  }
+  if (m.includes('no wav')) {
+    return 'Add audio for this speaker on the <button type="button" class="icon-btn" data-go="dataset">Dataset</button> page first.';
+  }
+  if (m.includes('out of memory') || m.includes('oom')) {
+    return 'The GPU ran out of memory. Lower the batch size under Advanced settings and try again.';
+  }
+  return 'The console log below has the full output.';
+}
+
+function showTrainingError(message, { title = 'Training failed', hint, variant = 'error' } = {}) {
+  $('training-error').className = `alert alert-${variant}`;
+  $('training-error-title').textContent = title;
+  $('training-error-message').textContent = message || 'Unknown error';
+  $('training-error-hint').innerHTML = hint || trainingHelpFor(message);
+  $('training-error').hidden = false;
+}
+
+function dismissTrainingError() {
+  $('training-error').hidden = true;
+}
+
+$('training-error').addEventListener('click', (e) => {
+  const go = e.target.closest('[data-go]');
+  if (go) navigateTo(go.dataset.go);
+});
+
 async function startTraining() {
-  const speaker = document.getElementById('train-speaker').value;
+  const speaker = $('train-speaker').value;
   if (!speaker) {
-    showToast('Please select a speaker', 'warning');
+    showToast('Select a speaker first', 'warning');
+    $('train-speaker').focus();
     return;
   }
 
-  const steps = parseInt(document.getElementById('train-steps').value) || 10000;
-  const batch = parseInt(document.getElementById('train-batch').value) || 4;
-  const lr = document.getElementById('train-lr').value || '1e-4';
-  const gradAccum = parseInt(document.getElementById('train-grad-accum').value) || 1;
-  const workers = parseInt(document.getElementById('train-workers').value) || 0;
-  const mixedPrecision = document.getElementById('train-mixed-precision').checked;
-  const compileModel = document.getElementById('train-compile').checked;
+  const steps = parseInt($('train-steps').value, 10) || 10000;
+  const batch = parseInt($('train-batch').value, 10) || 4;
+  const lr = $('train-lr').value.trim() || '1e-4';
+  const gradAccum = parseInt($('train-grad-accum').value, 10) || 1;
+  const workersRaw = parseInt($('train-workers').value, 10);
+  const workers = Number.isFinite(workersRaw) ? workersRaw : 0;
+  const mixedPrecision = $('train-mixed-precision').checked;
+  const compileModel = !!(state.autoConfig && state.autoConfig.compile_model);
+
+  if (!Number.isFinite(Number(lr)) || Number(lr) <= 0) {
+    showToast('Learning rate must be a positive number, for example 1e-4', 'warning');
+    $('train-lr').focus();
+    return;
+  }
+
+  dismissTrainingError();
+  const btn = $('btn-start-training');
+  setButtonBusy(btn, true, 'Starting...');
+  addLog(`Starting training for ${speaker}: ${steps.toLocaleString()} steps, batch ${batch}, lr ${lr}, accumulation ${gradAccum}`, 'info');
 
   try {
-    addLog('Starting training...', 'info');
     await api('/api/train/start', {
       method: 'POST',
       body: JSON.stringify({
@@ -634,255 +715,393 @@ async function startTraining() {
         gradient_accumulation_steps: gradAccum,
         num_workers: workers,
         mixed_precision: mixedPrecision,
-        compile_model: compileModel
+        compile_model: compileModel,
       }),
     });
 
-    state.training.active = true;
-    state.training.totalSteps = steps;
-    state.training.step = 0;
-    state.training.lossHistory = [];
-    state.training.startTime = Date.now();
-    state.training.stepsPerSec = null;
-    state.training.memoryUsageMb = null;
-
-    showTrainingUI(true);
-    document.getElementById('train-total-steps-label').textContent = `/ ${steps.toLocaleString()}`;
+    Object.assign(state.training, {
+      active: true,
+      speaker,
+      totalSteps: steps,
+      step: 0,
+      loss: null,
+      lossHistory: [],
+      startTime: Date.now(),
+      stepsPerSec: null,
+      memoryUsageMb: null,
+      stopRequested: false,
+      error: null,
+    });
+    setTrainingPhase('running');
+    updateTrainingUI();
+    drawLossChart();
     startTrainingPoll();
-    showToast('Training started!', 'success');
-    addLog(`Training started: ${speaker}, ${steps} steps, batch=${batch}, lr=${lr}, accum=${gradAccum}`, 'success');
+    showToast(`Training started for ${speaker}`, 'success');
   } catch (err) {
-    showToast(`Failed to start training: ${err.message}`, 'error');
+    if (err.status === 409) {
+      showToast('A training run is already in progress', 'warning');
+      checkTrainingStatus();
+      return;
+    }
+    const title = err.network ? 'Cannot reach the server' : 'Training could not start';
+    showTrainingError(err.message, { title });
+    showToast(`${title}: ${err.message}`, 'error');
     addLog(`Error: ${err.message}`, 'error');
+  } finally {
+    setButtonBusy(btn, false);
   }
 }
 
 async function stopTraining() {
+  const ok = await confirmDialog({
+    title: 'Stop training?',
+    message: 'The current run ends now. Checkpoints that were already saved stay in the output folder.',
+    confirmLabel: 'Stop training',
+  });
+  if (!ok) return;
+  state.training.stopRequested = true;
   try {
     await api('/api/train/stop', { method: 'POST' });
-    state.training.active = false;
-    showTrainingUI(false);
-    showToast('Training stopped', 'warning');
-    addLog('Training stopped by user', 'warning');
+    finishTraining('stopped');
   } catch (err) {
-    showToast(`Error: ${err.message}`, 'error');
+    state.training.stopRequested = false;
+    showToast(`Could not stop training: ${err.message}`, 'error');
   }
 }
 
-function showTrainingUI(active) {
-  document.getElementById('btn-start-training').style.display = active ? 'none' : '';
-  document.getElementById('btn-stop-training').style.display = active ? '' : 'none';
-  document.getElementById('training-progress-card').style.display = active ? '' : 'none';
+const PHASES = {
+  idle:      { label: 'Idle',     badge: '' },
+  running:   { label: 'Running',  badge: 'live' },
+  completed: { label: 'Complete', badge: 'success' },
+  failed:    { label: 'Failed',   badge: 'danger' },
+  stopped:   { label: 'Stopped',  badge: '' },
+  ended:     { label: 'Ended early', badge: 'warning' },
+};
 
-  const badge = document.getElementById('training-status-badge');
-  if (active) {
-    badge.textContent = 'Running';
-    badge.className = 'badge badge-success';
-  } else {
-    badge.textContent = 'Stopped';
-    badge.className = 'badge badge-warning';
-  }
+function setTrainingPhase(phase) {
+  state.training.phase = phase;
+  const running = phase === 'running';
+  state.training.active = running;
+
+  $('btn-start-training').hidden = running;
+  $('btn-stop-training').hidden = !running;
+  $('nav-training-live').hidden = !running;
+  $('training-progress-card').hidden = phase === 'idle';
+  $('training-speaker-label').textContent = state.training.speaker ? state.training.speaker : '';
+
+  const info = PHASES[phase] || PHASES.idle;
+  const b = $('training-status-badge');
+  b.className = ['badge', 'badge-dot', info.badge ? `badge-${info.badge}` : ''].filter(Boolean).join(' ');
+  b.textContent = info.label;
+
+  const bar = $('train-progress-bar');
+  bar.classList.toggle('is-error', phase === 'failed');
+  bar.classList.toggle('is-done', phase === 'completed');
+  bar.classList.toggle('is-muted', phase === 'stopped' || phase === 'ended');
+  $('train-progress-label').textContent = phase === 'running' ? 'Progress' : info.label;
 }
 
-let trainingPollId = null;
+let trainingPollTimer = null;
+let trainingPollToken = 0;
 
 function startTrainingPoll() {
-  if (trainingPollId) clearInterval(trainingPollId);
-  trainingPollId = setInterval(pollTraining, CONFIG.pollInterval);
+  stopTrainingPoll();
+  const token = ++trainingPollToken;
+  const tick = async () => {
+    if (token !== trainingPollToken) return;
+    await pollTraining();
+    if (token === trainingPollToken && state.training.phase === 'running') {
+      trainingPollTimer = setTimeout(tick, CONFIG.pollInterval);
+    }
+  };
+  trainingPollTimer = setTimeout(tick, 600);
+}
+
+function stopTrainingPoll() {
+  trainingPollToken++;
+  if (trainingPollTimer) clearTimeout(trainingPollTimer);
+  trainingPollTimer = null;
+}
+
+function applyStatus(data) {
+  const t = state.training;
+  if (data.speaker) t.speaker = data.speaker;
+  if (typeof data.total_steps === 'number' && data.total_steps > 0) t.totalSteps = data.total_steps;
+  if (typeof data.step === 'number') t.step = data.step;
+  if (data.loss != null) t.loss = data.loss;
+  t.stepsPerSec = data.steps_per_sec != null ? data.steps_per_sec : t.stepsPerSec;
+  t.memoryUsageMb = data.memory_usage_mb != null ? data.memory_usage_mb : t.memoryUsageMb;
+  if (typeof data.start_time === 'number' && data.start_time > 0) t.startTime = data.start_time * 1000;
+  t.serverPhase = data.phase || null;
+  t.serverState = data.state || null;
+  t.etaSeconds = typeof data.eta_seconds === 'number' ? data.eta_seconds : null;
+
+  if (data.loss != null && typeof data.step === 'number') {
+    const last = t.lossHistory[t.lossHistory.length - 1];
+    if (!last || last.step !== data.step) {
+      t.lossHistory.push({ step: data.step, loss: data.loss });
+      if (t.lossHistory.length > 500) t.lossHistory = t.lossHistory.slice(-500);
+    }
+  }
+}
+
+function statusError(data) {
+  const e = data && (data.error || data.error_message);
+  if (!e) return null;
+  return cleanText(typeof e === 'string' ? e : JSON.stringify(e));
 }
 
 async function pollTraining() {
+  let data;
   try {
-    const data = await api('/api/train/status');
-    if (!data.active) {
-      state.training.active = false;
-      clearInterval(trainingPollId);
-      trainingPollId = null;
+    data = await api('/api/train/status');
+  } catch {
+    return; // transient; keep polling
+  }
 
-      // Update state with final values
-      state.training.step = data.step || state.training.totalSteps;
-      state.training.loss = data.loss;
-      state.training.stepsPerSec = data.steps_per_sec;
-      state.training.memoryUsageMb = data.memory_usage_mb;
+  applyStatus(data);
+  await refreshConsoleLogs();
 
-      showTrainingUI(false);
-
-      const badge = document.getElementById('training-status-badge');
-      badge.textContent = 'Complete';
-      badge.className = 'badge badge-info';
-      document.getElementById('training-progress-card').style.display = '';
-
-      // Update UI to 100% complete
-      updateTrainingUI();
-      drawLossChart();
-
-      showToast('🎉 Training complete!', 'success');
-      addLog('Training completed successfully!', 'success');
-      return;
-    }
-
-    state.training.step = data.step || 0;
-    state.training.loss = data.loss;
-    state.training.stepsPerSec = data.steps_per_sec;
-    state.training.memoryUsageMb = data.memory_usage_mb;
-
-    if (data.loss != null) {
-      state.training.lossHistory.push({ step: data.step, loss: data.loss });
-      if (state.training.lossHistory.length > 500) {
-        state.training.lossHistory = state.training.lossHistory.slice(-500);
-      }
-    }
-
+  const error = statusError(data);
+  if (data.active && !error) {
     updateTrainingUI();
     drawLossChart();
+    return;
+  }
 
-    // Fetch and render actual training console logs
-    try {
-      const logData = await api('/api/train/console-logs');
-      if (logData && logData.logs && logData.logs.length) {
-        const logContainer = document.getElementById('training-log');
-        logContainer.innerHTML = logData.logs.map(line => {
-          let type = 'info';
-          const lower = line.toLowerCase();
-          if (lower.includes('error') || lower.includes('fail') || lower.includes('runtimeerror') || lower.includes('valueerror')) {
-            type = 'error';
-          } else if (lower.includes('warn') || lower.includes('warning') || lower.includes('fallback')) {
-            type = 'warning';
-          } else if (lower.includes('step') || lower.includes('loss=') || lower.includes('completed') || lower.includes('success')) {
-            type = 'success';
-          }
-          return `<div class="log-line log-${type}">${escapeHtml(line)}</div>`;
-        }).join('');
-        logContainer.scrollTop = logContainer.scrollHeight;
+  if (error) finishTraining('failed', error);
+  else if (state.training.stopRequested || data.state === 'stopped') finishTraining('stopped');
+  else if (data.completed === true || (data.completed == null && state.training.totalSteps > 0 && state.training.step >= state.training.totalSteps)) finishTraining('completed');
+  else finishTraining('ended');
+}
+
+function finishTraining(phase, error) {
+  stopTrainingPoll();
+  const t = state.training;
+  t.stopRequested = false;
+  t.error = error || null;
+  setTrainingPhase(phase);
+  updateTrainingUI();
+  drawLossChart();
+
+  const at = `step ${t.step.toLocaleString()} of ${t.totalSteps.toLocaleString()}`;
+  switch (phase) {
+    case 'completed':
+      showToast('Training complete. Your model is on the Models page', 'success');
+      addLog(`Training complete (${at}). Download the model from the Models page.`, 'success');
+      refreshModels();
+      break;
+    case 'failed':
+      showTrainingError(error);
+      showToast(`Training failed: ${error}`, 'error');
+      addLog(`Training failed at ${at}: ${error}`, 'error');
+      break;
+    case 'stopped':
+      showToast('Training stopped', 'warning');
+      addLog(`Training stopped by you at ${at}.`, 'warn');
+      break;
+    case 'ended':
+      showTrainingError(`The trainer exited at ${at} without reporting an error.`, {
+        title: 'Training ended early',
+        hint: 'Check the console log below for the last messages from the trainer.',
+        variant: 'warning',
+      });
+      showToast('Training ended before the last step', 'warning');
+      addLog(`Training ended early at ${at}.`, 'warn');
+      break;
+  }
+}
+
+async function checkTrainingStatus() {
+  try {
+    const data = await api('/api/train/status');
+    const error = statusError(data);
+    if (data.active && !error) {
+      applyStatus(data);
+      if (state.training.phase !== 'running') {
+        setTrainingPhase('running');
+        startTrainingPoll();
       }
-    } catch (err) {
-      // ignore
+      updateTrainingUI();
+      drawLossChart();
+    } else if (error && state.training.phase === 'idle') {
+      // Show the last failed run once, so a crash while the page was closed isn't silent.
+      applyStatus(data);
+      state.training.error = error;
+      setTrainingPhase('failed');
+      updateTrainingUI();
+      showTrainingError(error, { title: 'Last training run failed' });
+      refreshConsoleLogs();
     }
   } catch {
-    // ignore poll errors
+    // not reachable
+  }
+}
+
+function logType(line) {
+  const l = line.toLowerCase();
+  if (/(traceback|error|exception|failed|fatal|killed)/.test(l)) return 'error';
+  if (/warn/.test(l)) return 'warn';
+  if (/(complete|finished|saved|exported|success)/.test(l)) return 'success';
+  return 'info';
+}
+
+async function refreshConsoleLogs() {
+  try {
+    const logData = await api('/api/train/console-logs');
+    if (!logData || !Array.isArray(logData.logs) || !logData.logs.length) return;
+    const log = $('training-log');
+    const nearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
+    log.innerHTML = logData.logs
+      .map(line => cleanText(String(line)))
+      .filter(line => line.length)
+      .slice(-CONFIG.maxLogLines)
+      .map(line => `<div class="log-line log-${logType(line)}">${escapeHtml(line)}</div>`)
+      .join('');
+    if (nearBottom) log.scrollTop = log.scrollHeight;
+  } catch {
+    // ignore
   }
 }
 
 function updateTrainingUI() {
-  const { step, totalSteps, loss, startTime, stepsPerSec, memoryUsageMb } = state.training;
+  const { step, totalSteps, loss, startTime, stepsPerSec, phase } = state.training;
   const pct = totalSteps > 0 ? Math.min(100, (step / totalSteps) * 100) : 0;
 
-  document.getElementById('train-current-step').textContent = step.toLocaleString();
-  document.getElementById('train-loss').textContent = loss != null ? loss.toFixed(4) : '—';
-  document.getElementById('train-progress-pct').textContent = `${pct.toFixed(1)}%`;
-  document.getElementById('train-progress-bar').style.width = `${pct}%`;
+  $('train-current-step').textContent = step.toLocaleString();
+  $('train-total-steps-label').textContent = `/ ${totalSteps.toLocaleString()}`;
+  $('train-loss').textContent = loss != null ? Number(loss).toFixed(4) : '-';
+  $('train-progress-pct').textContent = `${pct.toFixed(1)}%`;
+  $('train-progress-bar').style.width = `${pct}%`;
 
-  // Calculate elapsed time and speed rate
   const elapsed = startTime ? (Date.now() - startTime) / 1000 : 0;
-  const calculatedRate = (elapsed > 0 && step > 0) ? (step / elapsed) : null;
-  const displayRate = stepsPerSec != null ? stepsPerSec : calculatedRate;
+  const measured = (elapsed > 0 && step > 0) ? step / elapsed : null;
+  const rate = stepsPerSec != null ? stepsPerSec : measured;
 
-  // Update speed & memory
-  document.getElementById('train-speed').textContent = displayRate != null ? `${displayRate.toFixed(2)} steps/s` : '—';
-  
-  const memCard = document.getElementById('train-process-mem-card');
-  const memVal = document.getElementById('train-process-mem');
-  if (memoryUsageMb != null) {
-    if (memCard) memCard.style.display = '';
-    if (memVal) memVal.textContent = `${memoryUsageMb.toFixed(1)} MB`;
-  } else {
-    if (memVal) memVal.textContent = '—';
+  $('train-speed').textContent = rate != null && step > 0 ? rate.toFixed(2) : '-';
+  if (phase === 'running') {
+    const sp = state.training.serverPhase;
+    $('train-progress-label').textContent = (state.training.serverState === 'starting' || (step === 0 && (!sp || /start|init|prepar|load/i.test(sp))))
+      ? 'Starting the trainer...' : 'Progress';
   }
-
-  // ETA
-  if (displayRate && displayRate > 0) {
-    const remaining = (totalSteps - step) / displayRate;
-    document.getElementById('train-eta').textContent = formatDuration(remaining);
+  if (phase === 'running' && state.training.etaSeconds != null && step > 0) {
+    $('train-eta').textContent = formatDuration(state.training.etaSeconds);
+  } else if (phase === 'running' && rate && rate > 0 && step > 0) {
+    $('train-eta').textContent = formatDuration((totalSteps - step) / rate);
   } else {
-    document.getElementById('train-eta').textContent = '—';
+    $('train-eta').textContent = phase === 'completed' ? 'Done' : '-';
   }
 }
 
 // ---------- Loss Chart (Canvas) ----------
-function drawLossChart() {
-  const canvas = document.getElementById('loss-chart');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const rect = canvas.parentElement.getBoundingClientRect();
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
 
-  canvas.width = rect.width * 2;
-  canvas.height = rect.height * 2;
-  ctx.scale(2, 2);
+function hexToRgba(hex, alpha) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return `rgba(124, 140, 255, ${alpha})`;
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
+function drawLossChart() {
+  const canvas = $('loss-chart');
+  if (!canvas) return;
+  const rect = canvas.parentElement.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return;
+
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(rect.width * dpr);
+  canvas.height = Math.round(rect.height * dpr);
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
   const w = rect.width;
   const h = rect.height;
-  const pad = { top: 20, right: 20, bottom: 30, left: 50 };
+  const pad = { top: 22, right: 22, bottom: 30, left: 58 };
+  const signal = cssVar('--signal') || '#7c8cff';
+  const textLo = cssVar('--text-lo') || '#82828e';
+  const grid = cssVar('--chart-grid') || 'rgba(255,255,255,0.06)';
+  const mono = '11px "Geist Mono", ui-monospace, monospace';
 
-  // Clear
   ctx.clearRect(0, 0, w, h);
 
   const data = state.training.lossHistory;
   if (data.length < 2) {
-    ctx.fillStyle = '#64748b';
-    ctx.font = '13px Inter, sans-serif';
+    ctx.fillStyle = textLo;
+    ctx.font = '13px Geist, -apple-system, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('Waiting for training data...', w / 2, h / 2);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(state.training.phase === 'running' ? 'Waiting for the first loss values...' : 'No loss values recorded for this run', w / 2, h / 2);
     return;
   }
 
   const plotW = w - pad.left - pad.right;
   const plotH = h - pad.top - pad.bottom;
-
   const minStep = data[0].step;
   const maxStep = data[data.length - 1].step;
   const losses = data.map(d => d.loss);
-  const minLoss = Math.min(...losses) * 0.95;
-  const maxLoss = Math.max(...losses) * 1.05;
+  let minLoss = Math.min(...losses);
+  let maxLoss = Math.max(...losses);
+  const span = (maxLoss - minLoss) || Math.abs(maxLoss) || 1;
+  minLoss -= span * 0.08;
+  maxLoss += span * 0.08;
 
-  const xScale = (v) => pad.left + ((v - minStep) / (maxStep - minStep || 1)) * plotW;
-  const yScale = (v) => pad.top + (1 - (v - minLoss) / (maxLoss - minLoss || 1)) * plotH;
+  const x = (v) => pad.left + ((v - minStep) / ((maxStep - minStep) || 1)) * plotW;
+  const y = (v) => pad.top + (1 - (v - minLoss) / ((maxLoss - minLoss) || 1)) * plotH;
 
-  // Grid lines
-  ctx.strokeStyle = 'rgba(148, 163, 184, 0.08)';
-  ctx.lineWidth = 0.5;
+  // Grid + y labels
+  ctx.strokeStyle = grid;
+  ctx.lineWidth = 1;
+  ctx.fillStyle = textLo;
+  ctx.font = mono;
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
   for (let i = 0; i <= 4; i++) {
-    const y = pad.top + (plotH / 4) * i;
+    const gy = Math.round(pad.top + (plotH / 4) * i) + 0.5;
     ctx.beginPath();
-    ctx.moveTo(pad.left, y);
-    ctx.lineTo(w - pad.right, y);
+    ctx.moveTo(pad.left, gy);
+    ctx.lineTo(w - pad.right, gy);
     ctx.stroke();
+    const val = maxLoss - ((maxLoss - minLoss) / 4) * i;
+    ctx.fillText(val.toFixed(3), pad.left - 10, gy);
   }
 
-  // Gradient fill
+  // Area
   const gradient = ctx.createLinearGradient(0, pad.top, 0, h - pad.bottom);
-  gradient.addColorStop(0, 'rgba(139, 92, 246, 0.2)');
-  gradient.addColorStop(1, 'rgba(139, 92, 246, 0)');
-
+  gradient.addColorStop(0, hexToRgba(signal, 0.22));
+  gradient.addColorStop(1, hexToRgba(signal, 0));
   ctx.beginPath();
-  ctx.moveTo(xScale(data[0].step), h - pad.bottom);
-  data.forEach(d => ctx.lineTo(xScale(d.step), yScale(d.loss)));
-  ctx.lineTo(xScale(data[data.length - 1].step), h - pad.bottom);
+  ctx.moveTo(x(data[0].step), h - pad.bottom);
+  data.forEach(d => ctx.lineTo(x(d.step), y(d.loss)));
+  ctx.lineTo(x(maxStep), h - pad.bottom);
   ctx.closePath();
   ctx.fillStyle = gradient;
   ctx.fill();
 
   // Line
   ctx.beginPath();
-  data.forEach((d, i) => {
-    const x = xScale(d.step);
-    const y = yScale(d.loss);
-    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-  });
-  ctx.strokeStyle = '#8b5cf6';
+  data.forEach((d, i) => (i === 0 ? ctx.moveTo(x(d.step), y(d.loss)) : ctx.lineTo(x(d.step), y(d.loss))));
+  ctx.strokeStyle = signal;
   ctx.lineWidth = 2;
   ctx.lineJoin = 'round';
   ctx.stroke();
 
-  // Axis labels
-  ctx.fillStyle = '#64748b';
-  ctx.font = '10px JetBrains Mono, monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText(`Step ${minStep}`, pad.left, h - 8);
-  ctx.fillText(`Step ${maxStep}`, w - pad.right, h - 8);
+  // Last point
+  const last = data[data.length - 1];
+  ctx.beginPath();
+  ctx.arc(x(last.step), y(last.loss), 3.5, 0, Math.PI * 2);
+  ctx.fillStyle = signal;
+  ctx.fill();
 
+  // X labels
+  ctx.fillStyle = textLo;
+  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'left';
+  ctx.fillText(`step ${minStep.toLocaleString()}`, pad.left, h - 10);
   ctx.textAlign = 'right';
-  ctx.fillText(maxLoss.toFixed(3), pad.left - 6, pad.top + 4);
-  ctx.fillText(minLoss.toFixed(3), pad.left - 6, h - pad.bottom + 4);
+  ctx.fillText(`step ${maxStep.toLocaleString()}`, w - pad.right, h - 10);
 }
 
 // ---------- Models ----------
@@ -890,268 +1109,402 @@ async function refreshModels() {
   try {
     const data = await api('/api/models/list');
     state.models = data.models || [];
-    renderModelsList();
-    
-    // Update dashboard stats in DOM if present
-    const statModels = document.getElementById('stat-models');
-    if (statModels) statModels.textContent = state.models.length;
   } catch {
-    renderModelsList();
+    // keep last known list
   }
+  renderModelsList();
+  updateDashboardStats();
 }
 
 function renderModelsList() {
-  const container = document.getElementById('models-list');
+  const container = $('models-list');
   if (!state.models.length) {
     container.innerHTML = `
       <div class="empty-state">
-        <div class="empty-state-icon">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/></svg>
-        </div>
+        <div class="empty-state-icon">${ICONS.box}</div>
         <h3>No trained models yet</h3>
-        <p class="text-muted">Start training a voice model to generate output weights here.</p>
+        <p>Finished training runs show up here.</p>
       </div>`;
     return;
   }
 
-  container.innerHTML = state.models.map(m => {
-    const isParaphernalia = m.name.startsWith('paraphernalia_');
-    const displayName = isParaphernalia ? m.name.replace('paraphernalia_', '') : m.name;
-    const typeLabel = isParaphernalia 
-      ? '<span class="badge badge-success">Inference Package</span>' 
-      : '<span class="badge badge-info">Checkpoint</span>';
+  // Inference packages first: they're what the voice changer imports.
+  const models = [...state.models].sort((a, b) => {
+    const pa = a.name.startsWith('paraphernalia_') ? 0 : 1;
+    const pb = b.name.startsWith('paraphernalia_') ? 0 : 1;
+    return pa - pb || String(b.created || '').localeCompare(String(a.created || ''));
+  });
+
+  container.innerHTML = models.map(m => {
+    const isPackage = m.name.startsWith('paraphernalia_');
+    const displayName = isPackage ? m.name.replace(/^paraphernalia_/, '') : m.name;
+    const folder = m.path && m.path.includes('/') ? m.path.split('/')[0] : '';
+    const typeBadge = isPackage ? badge('Voice model', 'success') : badge('Checkpoint');
+    const meta = [
+      folder ? `speaker ${folder}` : '',
+      m.size ? formatBytes(m.size) : '',
+      m.created ? new Date(m.created).toLocaleString() : '',
+    ].filter(Boolean).map(escapeHtml).join(' · ');
 
     return `
-      <div class="model-card" style="display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-sm); margin-bottom: 8px;">
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <div style="width: 36px; height: 36px; border-radius: var(--radius-sm); background: var(--accent-subtle); color: var(--accent-text); display: flex; align-items: center; justify-content: center;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/></svg>
-          </div>
+      <div class="list-row">
+        <div class="list-row-main">
+          <div class="list-row-icon ${isPackage ? 'is-accent' : ''}">${isPackage ? ICONS.box : ICONS.file}</div>
           <div>
-            <div class="model-name" style="font-weight: 600; color: var(--text-primary); font-size: 14px; display: flex; align-items: center; gap: 8px;">
-              ${escapeHtml(displayName)}
-              ${typeLabel}
-            </div>
-            <div class="model-meta" style="font-size: 12px; color: var(--text-muted);">
-              ${m.size ? formatBytes(m.size) : 'Unknown size'}
-              ${m.created ? ` • ${new Date(m.created).toLocaleString()}` : ''}
-            </div>
+            <div class="list-row-title">${escapeHtml(displayName)} ${typeBadge}</div>
+            <div class="list-row-meta">${meta}</div>
           </div>
         </div>
-        <div style="display: flex; gap: 8px;">
-          <a href="${CONFIG.apiUrl}/api/models/download/${encodeURIComponent(m.path)}" class="btn btn-sm btn-primary" download>Download</a>
-          <button class="btn btn-sm btn-danger" onclick="deleteModel(decodeURIComponent('${encodeURIComponent(m.path)}'))">Delete</button>
+        <div class="list-row-actions">
+          <a href="${CONFIG.apiUrl}/api/models/download/${encodeURIComponent(m.path)}" class="btn btn-sm ${isPackage ? 'btn-primary' : 'btn-secondary'}" download>${ICONS.download}${isPackage ? 'Download ZIP' : 'Download'}</a>
+          <button type="button" class="btn btn-sm btn-danger" data-action="delete-model" data-path="${escapeAttr(m.path)}">${ICONS.trash}Delete</button>
         </div>
-      </div>
-    `;
+      </div>`;
   }).join('');
 }
 
+$('models-list').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-action="delete-model"]');
+  if (btn) deleteModel(btn.dataset.path);
+});
+
 async function deleteModel(path) {
-  if (!confirm(`Are you sure you want to delete "${path}"? This action cannot be undone.`)) return;
+  const ok = await confirmDialog({
+    title: 'Delete this model?',
+    message: `"${path}" is removed from the output folder. This can't be undone.`,
+    confirmLabel: 'Delete model',
+  });
+  if (!ok) return;
   try {
     await api(`/api/models/${encodeURIComponent(path)}`, { method: 'DELETE' });
-    showToast('Model successfully deleted', 'success');
+    showToast('Model deleted', 'success');
     refreshModels();
   } catch (err) {
-    showToast(`Failed to delete model: ${err.message}`, 'error');
+    showToast(`Could not delete the model: ${err.message}`, 'error');
   }
 }
 
-// ---------- Training Log ----------
+// ---------- Console Log ----------
 function addLog(msg, type = 'info') {
-  const log = document.getElementById('training-log');
-  const time = new Date().toLocaleTimeString();
+  const log = $('training-log');
   const line = document.createElement('div');
-  line.className = `log-line log-${type}`;
-  line.textContent = `[${time}] ${msg}`;
+  const cls = type === 'warning' ? 'warn' : type;
+  line.className = `log-line log-${cls}`;
+  line.textContent = `[${new Date().toLocaleTimeString()}] ${cleanText(msg)}`;
   log.appendChild(line);
-
-  // Trim
-  while (log.children.length > CONFIG.maxLogLines) {
-    log.removeChild(log.firstChild);
-  }
-
+  while (log.children.length > CONFIG.maxLogLines) log.removeChild(log.firstChild);
   log.scrollTop = log.scrollHeight;
 }
 
 function clearLog() {
-  document.getElementById('training-log').innerHTML = '<div class="log-line log-info">[INFO] Log cleared.</div>';
+  $('training-log').innerHTML = '<div class="log-line log-info">Log cleared.</div>';
 }
 
 // ---------- Toasts ----------
 function showToast(message, type = 'info') {
-  const container = document.getElementById('toast-container');
+  const container = $('toast-container');
   const toast = document.createElement('div');
-  toast.className = 'toast';
+  toast.className = `toast toast-${type}`;
+  toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+  toast.innerHTML = `
+    <span class="toast-icon">${ICONS[type] || ICONS.info}</span>
+    <span class="toast-msg">${escapeHtml(cleanText(message))}</span>
+    <button type="button" class="toast-close" aria-label="Dismiss">${ICONS.close}</button>`;
 
-  const icons = { 
-    info: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00b4d8" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>', 
-    success: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>', 
-    warning: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>', 
-    error: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>' 
-  };
-  const cleanMsg = message.replace(/^[✅❌⚠️ℹ️⚡]\s*/, '');
-  toast.innerHTML = `<span style="display:flex;align-items:center;">${icons[type] || icons.info}</span><span>${escapeHtml(cleanMsg)}</span>`;
-
-  container.appendChild(toast);
-
-  setTimeout(() => {
+  const remove = () => {
+    if (!toast.isConnected) return;
     toast.classList.add('toast-exit');
     setTimeout(() => toast.remove(), 200);
-  }, 3500);
+  };
+  toast.querySelector('.toast-close').addEventListener('click', remove);
+  container.appendChild(toast);
+  while (container.children.length > 4) container.firstChild.remove();
+  setTimeout(remove, type === 'error' ? 8000 : 4000);
+}
+
+// ---------- Confirm dialog ----------
+function confirmDialog({ title, message, confirmLabel = 'Delete', danger = true }) {
+  return new Promise(resolve => {
+    const modal = $('confirm-modal');
+    const okBtn = $('confirm-ok');
+    const cancelBtn = $('confirm-cancel');
+    $('confirm-title').textContent = title;
+    $('confirm-message').textContent = message;
+    okBtn.textContent = confirmLabel;
+    okBtn.className = `btn ${danger ? 'btn-danger-solid' : 'btn-primary'}`;
+    const lastFocus = document.activeElement;
+    modal.hidden = false;
+    okBtn.focus();
+
+    const close = (result) => {
+      modal.hidden = true;
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+      modal.removeEventListener('click', onBackdrop);
+      document.removeEventListener('keydown', onKey);
+      if (lastFocus && lastFocus.focus) lastFocus.focus();
+      resolve(result);
+    };
+    const onOk = () => close(true);
+    const onCancel = () => close(false);
+    const onBackdrop = (e) => { if (e.target === modal) close(false); };
+    const onKey = (e) => {
+      if (e.key === 'Escape') close(false);
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        (document.activeElement === okBtn ? cancelBtn : okBtn).focus();
+      }
+    };
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+    modal.addEventListener('click', onBackdrop);
+    document.addEventListener('keydown', onKey);
+  });
 }
 
 // ---------- Settings ----------
+function renderSettings() {
+  const data = state.status;
+  const list = $('settings-trainer-dir');
+  const b = $('settings-trainer-badge');
+  $('api-url').value = CONFIG.apiUrl;
+  if (!data) {
+    b.className = 'badge';
+    b.textContent = state.serverOnline === false ? 'Offline' : 'Checking';
+    return;
+  }
+  b.className = `badge ${data.beatrice_installed ? 'badge-success' : 'badge-danger'}`;
+  b.textContent = data.beatrice_installed ? 'Installed' : 'Not installed';
+  const rows = [
+    ['Status', data.beatrice_installed ? 'Installed' : 'Not installed'],
+    ['Datasets', data.data_dir || '-'],
+    ['Output', data.output_dir || '-'],
+    ['Python', data.python || '-'],
+    ['PyTorch', data.torch_version || 'not installed'],
+  ];
+  list.innerHTML = rows.map(([k, v]) => `<div class="kv-row"><span>${escapeHtml(k)}</span><strong>${escapeHtml(String(v))}</strong></div>`).join('');
+}
+
 function testConnection() {
-  const url = document.getElementById('api-url').value.trim();
+  const url = $('api-url').value.trim().replace(/\/+$/, '');
+  if (!/^https?:\/\//.test(url)) {
+    showToast('Enter a full URL, for example http://localhost:8000', 'warning');
+    return;
+  }
   CONFIG.apiUrl = url;
-  localStorage.setItem('beatrice_api_url', url);
+  writeStorage('beatrice_api_url', url);
   checkServerStatus().then(data => {
-    if (data) showToast('Connection successful!', 'success');
-    else showToast('Cannot reach server', 'error');
+    if (data) {
+      showToast('Connected to the trainer server', 'success');
+      refreshDashboard();
+    } else {
+      showToast(`Cannot reach ${url}`, 'error');
+    }
   });
 }
 
 async function setupBeatriceTrainer() {
+  const btn = $('btn-setup-trainer');
+  setButtonBusy(btn, true, 'Downloading...');
+  showToast('Downloading the Beatrice trainer from Hugging Face. This can take a few minutes.', 'info');
   try {
-    showToast('Cloning Beatrice Trainer... this may take a minute.', 'info');
     const data = await api('/api/setup/beatrice', { method: 'POST' });
-    showToast(data.message || 'Beatrice Trainer set up!', 'success');
-    checkServerStatus();
+    showToast(cleanText(data.message) || 'Beatrice trainer is ready', 'success');
+    await checkServerStatus();
   } catch (err) {
-    showToast(`Error: ${err.message}`, 'error');
+    showToast(`Trainer download failed: ${err.message}`, 'error');
+  } finally {
+    setButtonBusy(btn, false);
   }
 }
 
 async function exportDatasetZip() {
-  showToast('Exporting dataset as ZIP...', 'info');
+  const btn = $('btn-export-zip');
+  setButtonBusy(btn, true, 'Packaging...');
   try {
-    const response = await fetch(`${CONFIG.apiUrl}/api/dataset/export`);
-    if (!response.ok) throw new Error('Export failed');
+    let response;
+    try {
+      response = await fetch(`${CONFIG.apiUrl}/api/dataset/export`);
+    } catch {
+      setServerStatus(false);
+      throw new Error('cannot reach the trainer server');
+    }
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(cleanText(errorDetail(errData, response.status)));
+    }
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = 'beatrice_dataset.zip';
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
-    showToast('Dataset exported!', 'success');
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    showToast(`Exported beatrice_dataset.zip (${formatBytes(blob.size)})`, 'success');
   } catch (err) {
     showToast(`Export failed: ${err.message}`, 'error');
+  } finally {
+    setButtonBusy(btn, false);
   }
 }
 
-function clearAllData() {
-  if (!confirm('Are you sure? This will delete all datasets and models.')) return;
-  api('/api/reset', { method: 'POST' })
-    .then(() => {
-      showToast('All data cleared', 'success');
-      refreshDashboard();
-    })
-    .catch(err => showToast(`Error: ${err.message}`, 'error'));
+async function clearAllData() {
+  const ok = await confirmDialog({
+    title: 'Delete all local data?',
+    message: 'Every dataset and every trained model on this computer is deleted. This can\'t be undone.',
+    confirmLabel: 'Delete everything',
+  });
+  if (!ok) return;
+  try {
+    await api('/api/reset', { method: 'POST' });
+    showToast('All datasets and models deleted', 'success');
+    state.speakers = [];
+    state.models = [];
+    refreshDashboard();
+    refreshDataset();
+    refreshModels();
+  } catch (err) {
+    showToast(`Reset failed: ${err.message}`, 'error');
+  }
 }
 
 // ---------- Utilities ----------
 function escapeHtml(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function escapeAttr(str) {
+  return escapeHtml(str).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Strips emoji and variation selectors from text that comes from the server,
+// so the UI chrome stays emoji-free.
+function cleanText(str) {
+  return String(str ?? '')
+    .replace(/[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}️‍⃣]/gu, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
+function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
 }
 
 function formatDuration(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 0) return '-';
   if (seconds < 60) return `${Math.round(seconds)}s`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`;
+  if (seconds < 3600) {
+    const m = Math.floor(seconds / 60);
+    const s = Math.round(seconds % 60);
+    return s ? `${m}m ${s}s` : `${m}m`;
+  }
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   return `${h}h ${m}m`;
 }
 
 function formatBytes(bytes) {
+  if (!Number.isFinite(bytes)) return '';
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1048576).toFixed(1)} MB`;
+  if (bytes < 1073741824) return `${(bytes / 1048576).toFixed(1)} MB`;
+  return `${(bytes / 1073741824).toFixed(2)} GB`;
 }
 
-// ---------- Theme (Light / Dark Mode) ----------
-function initTheme() {
-  const savedTheme = localStorage.getItem('beatrice_theme') || 'dark';
-  applyTheme(savedTheme);
+// ---------- Colour mode (Dark / Light / System) ----------
+const colorModeQuery = window.matchMedia('(prefers-color-scheme: light)');
+
+function resolveMode(mode) {
+  if (mode === 'system') return colorModeQuery.matches ? 'light' : 'dark';
+  return mode === 'light' ? 'light' : 'dark';
 }
 
+function applyColorMode(mode) {
+  document.documentElement.setAttribute('data-color-mode', resolveMode(mode));
+  document.querySelectorAll('.color-mode-btn').forEach(btn => {
+    const active = btn.dataset.mode === mode;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', String(active));
+  });
+  requestAnimationFrame(drawLossChart);
+}
+
+function setColorMode(mode) {
+  writeStorage('beatrice_theme', mode);
+  applyColorMode(mode);
+}
+
+// Kept for older bookmarks/snippets: flips between dark and light.
 function toggleTheme() {
-  const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
-  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-  applyTheme(newTheme);
-  localStorage.setItem('beatrice_theme', newTheme);
-  showToast(`Switched to ${newTheme === 'dark' ? 'Dark Mode' : 'Light Mode'}`, 'info');
+  setColorMode(document.documentElement.getAttribute('data-color-mode') === 'light' ? 'dark' : 'light');
 }
 
-function applyTheme(theme) {
-  if (theme === 'light') {
-    document.documentElement.setAttribute('data-theme', 'light');
-    const toggleText = document.getElementById('theme-toggle-text');
-    if (toggleText) toggleText.textContent = 'Dark Mode';
-  } else {
-    document.documentElement.removeAttribute('data-theme');
-    const toggleText = document.getElementById('theme-toggle-text');
-    if (toggleText) toggleText.textContent = 'Light Mode';
-  }
-}
+colorModeQuery.addEventListener('change', () => {
+  if (readStorage('beatrice_theme', 'dark') === 'system') applyColorMode('system');
+});
 
-// Immediately apply theme setting to avoid flash of wrong theme
-initTheme();
+applyColorMode(readStorage('beatrice_theme', 'dark'));
 
 // ---------- Init ----------
-document.addEventListener('DOMContentLoaded', () => {
-  setupDatasetEvents();
-  setupLossChart();
-  setupDropZone();
-  checkServerStatus().then(status => {
-    if (status) {
-      pollMemoryUsage();
-      loadKaggleConfig();
-    }
+function setupMobileNav() {
+  const toggleBtn = $('menu-toggle-btn');
+  const sidebar = $('sidebar');
+  const setOpen = (open) => {
+    sidebar.classList.toggle('open', open);
+    toggleBtn.classList.toggle('open', open);
+    toggleBtn.setAttribute('aria-expanded', String(open));
+    toggleBtn.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+  };
+  toggleBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    setOpen(!sidebar.classList.contains('open'));
   });
-  refreshDashboard();
+  document.addEventListener('click', (e) => {
+    if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && !toggleBtn.contains(e.target)) setOpen(false);
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && sidebar.classList.contains('open')) setOpen(false);
+  });
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', () => { if (window.innerWidth <= 860) setOpen(false); });
+  });
+}
 
-  // Mobile sidebar navigation toggle
-  const toggleBtn = document.getElementById('menu-toggle-btn');
-  const sidebar = document.getElementById('sidebar');
+async function init() {
+  setupDropZone();
+  setupMobileNav();
+  $('api-url').value = CONFIG.apiUrl;
 
-  if (toggleBtn && sidebar) {
-    toggleBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      sidebar.classList.toggle('open');
-      toggleBtn.classList.toggle('open');
-    });
+  const initial = window.location.hash.replace('#', '');
+  navigateTo(PAGES.includes(initial) ? initial : 'dashboard');
 
-    // Close sidebar on click outside
-    document.addEventListener('click', (e) => {
-      if (sidebar.classList.contains('open') && !sidebar.contains(e.target) && e.target !== toggleBtn) {
-        sidebar.classList.remove('open');
-        toggleBtn.classList.remove('open');
-      }
-    });
-
-    // Close sidebar when clicking a nav item on mobile
-    document.querySelectorAll('.nav-item').forEach(item => {
-      item.addEventListener('click', () => {
-        if (window.innerWidth <= 1024) {
-          sidebar.classList.remove('open');
-          toggleBtn.classList.remove('open');
-        }
-      });
-    });
+  const status = await checkServerStatus();
+  if (status) {
+    pollMemoryUsage();
+    loadKaggleConfig();
+    checkTrainingStatus();
+    refreshDashboard();
   }
 
-  // Periodic status check
   setInterval(checkServerStatus, 10000);
-
-  // Periodic memory check
   setInterval(() => {
-    if (state.serverOnline) {
-      pollMemoryUsage();
-    }
+    if (state.serverOnline && !document.hidden) pollMemoryUsage();
   }, 3000);
-});
+
+  if ('ResizeObserver' in window) {
+    new ResizeObserver(() => drawLossChart()).observe($('loss-chart').parentElement);
+  } else {
+    window.addEventListener('resize', drawLossChart);
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}

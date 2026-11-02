@@ -1,87 +1,100 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-color-mode="dark" data-platform="windows">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Beatrice V2 Voice Conversion Trainer — Modern Desktop Interface for Custom Voice Training.">
-  <title>Beatrice V2 Trainer — Voice Conversion</title>
-
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-
-  <link rel="icon" href="assets/logo.jpg" type="image/jpeg">
+  <meta name="description" content="Beatrice Trainer for Windows: train your own Beatrice voice models on your PC and import them into the Beatrice voice changer.">
+  <meta name="color-scheme" content="dark light">
+  <title>Beatrice Trainer for Windows</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="index.css">
+  <script>
+    // Apply the saved colour mode before first paint (no flash).
+    (function () {
+      var mode = 'dark';
+      try { mode = localStorage.getItem('beatrice_theme') || 'dark'; } catch (e) {}
+      if (mode === 'system') mode = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-color-mode', mode === 'light' ? 'light' : 'dark');
+    })();
+  </script>
 </head>
 <body>
 
   <!-- Toast notifications -->
-  <div class="toast-container" id="toast-container"></div>
+  <div class="toast-container" id="toast-container" aria-live="polite"></div>
 
-  <!-- App Container -->
+  <!-- Confirm dialog -->
+  <div class="modal-overlay" id="confirm-modal" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+      <div class="modal-header"><h3 id="confirm-title">Are you sure?</h3></div>
+      <div class="modal-body"><p id="confirm-message"></p></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="confirm-cancel">Cancel</button>
+        <button type="button" class="btn btn-danger-solid" id="confirm-ok">Delete</button>
+      </div>
+    </div>
+  </div>
+
   <div class="app-container">
 
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-brand">
-        <img src="assets/logo.jpg" alt="Project Beatrice V2 Logo" class="brand-logo-img">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 64 64" stroke-linecap="round" stroke-linejoin="round"><g fill="none" stroke="currentColor" stroke-width="2.2"><path d="M32 50 C 35 39, 40.8 27.5, 42.15 16.0"/><path d="M32 50 C 27.5 41, 21.6 33, 19.8 25.1"/><path d="M32 50 C 38.5 44, 46.5 36.5, 50.5 27.5"/></g><g fill="currentColor" stroke="none"><path d="M42.83 12.13 C45.72 11.59 46.94 8.05 44.32 3.66 C40.37 6.89 40.30 10.63 42.83 12.13Z M44.29 13.35 C46.20 15.59 49.87 14.87 52.37 10.41 C47.59 8.60 44.31 10.41 44.29 13.35Z M43.96 15.22 C42.98 18.00 45.44 20.82 50.54 20.75 C49.72 15.71 46.52 13.77 43.96 15.22Z M42.17 15.87 C39.28 16.41 38.06 19.95 40.68 24.34 C44.63 21.11 44.70 17.37 42.17 15.87Z M40.71 14.65 C38.80 12.41 35.13 13.13 32.63 17.59 C37.41 19.40 40.69 17.59 40.71 14.65Z M41.04 12.78 C42.02 10.00 39.56 7.18 34.46 7.25 C35.28 12.29 38.48 14.23 41.04 12.78Z M41.45 14.00 a1.05 1.05 0 1 0 2.10 0 a1.05 1.05 0 1 0 -2.10 0Z"/><path d="M19.14 22.04 C21.02 20.77 20.78 17.95 17.56 15.74 C15.76 19.20 16.87 21.80 19.14 22.04Z M20.58 22.46 C22.62 23.45 24.95 21.84 25.25 17.94 C21.35 18.11 19.66 20.38 20.58 22.46Z M20.94 23.91 C21.10 26.18 23.67 27.39 27.19 25.71 C25.09 22.41 22.28 22.07 20.94 23.91Z M19.86 24.96 C17.98 26.23 18.22 29.05 21.44 31.26 C23.24 27.80 22.13 25.20 19.86 24.96Z M18.42 24.54 C16.38 23.55 14.05 25.16 13.75 29.06 C17.65 28.89 19.34 26.62 18.42 24.54Z M18.06 23.09 C17.90 20.82 15.33 19.61 11.81 21.29 C13.91 24.59 16.72 24.93 18.06 23.09Z M18.65 23.50 a0.85 0.85 0 1 0 1.70 0 a0.85 0.85 0 1 0 -1.70 0Z"/><path d="M50.50 27.50 C52.97 27.63 54.50 24.18 54.25 21.00 C51.38 22.38 49.16 25.43 50.50 27.50Z"/><path d="M32 50 C 26 46.5, 19.5 43, 13 36 C 21 40, 27.5 44, 32 50Z"/></g><g fill="none" stroke="currentColor" stroke-width="2.75"><path d="M12.5 50 Q17.5 43.6 22.5 50 T32.5 50 T42.5 50 T52.5 50"/></g></svg>
+        </div>
         <div class="brand-text">
-          <h2>Beatrice V2</h2>
-          <span>Voice Trainer</span>
+          <h2>Beatrice</h2>
+          <span>Trainer for Windows</span>
         </div>
       </div>
 
-      <nav>
+      <nav aria-label="Main">
         <div class="nav-section">
-          <div class="nav-label">Main</div>
-          <div class="nav-item active" data-page="dashboard" id="nav-dashboard">
-            <span class="nav-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>
-            </span>
+          <div class="nav-label">Train</div>
+          <button type="button" class="nav-item active" data-page="dashboard" id="nav-dashboard">
+            <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg></span>
             <span>Dashboard</span>
-          </div>
-          <div class="nav-item" data-page="dataset" id="nav-dataset">
-            <span class="nav-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-            </span>
+          </button>
+          <button type="button" class="nav-item" data-page="dataset" id="nav-dataset">
+            <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg></span>
             <span>Dataset</span>
-          </div>
-          <div class="nav-item" data-page="training" id="nav-training">
-            <span class="nav-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-            </span>
+          </button>
+          <button type="button" class="nav-item" data-page="training" id="nav-training">
+            <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12h3l3-8 4 16 3-8h7"/></svg></span>
             <span>Training</span>
-          </div>
-          <div class="nav-item" data-page="models" id="nav-models">
-            <span class="nav-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="15" x2="23" y2="15"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="15" x2="4" y2="15"/></svg>
-            </span>
+            <span class="nav-live" id="nav-training-live" hidden></span>
+          </button>
+          <button type="button" class="nav-item" data-page="models" id="nav-models">
+            <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>
             <span>Models</span>
-          </div>
+          </button>
         </div>
 
         <div class="nav-section">
-          <div class="nav-label">Tools</div>
-          <div class="nav-item" data-page="colab" id="nav-colab">
-            <span class="nav-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
-            </span>
-            <span>Colab Setup</span>
-          </div>
-          <div class="nav-item" data-page="settings" id="nav-settings">
-            <span class="nav-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-            </span>
+          <div class="nav-label">More</div>
+          <button type="button" class="nav-item" data-page="colab" id="nav-colab">
+            <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg></span>
+            <span>Cloud training</span>
+          </button>
+          <button type="button" class="nav-item" data-page="settings" id="nav-settings">
+            <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg></span>
             <span>Settings</span>
-          </div>
+          </button>
         </div>
       </nav>
 
       <div class="sidebar-footer">
-        <button type="button" class="btn btn-secondary btn-sm" id="theme-toggle-btn" onclick="toggleTheme()" style="width: 100%; margin-bottom: 12px; justify-content: flex-start; gap: 8px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-          <span id="theme-toggle-text">Light Mode</span>
-        </button>
+        <div class="segmented full" role="group" aria-label="Colour mode">
+          <button type="button" class="seg-btn color-mode-btn" data-mode="dark" onclick="setColorMode('dark')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>Dark
+          </button>
+          <button type="button" class="seg-btn color-mode-btn" data-mode="light" onclick="setColorMode('light')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>Light
+          </button>
+          <button type="button" class="seg-btn color-mode-btn" data-mode="system" onclick="setColorMode('system')" title="Follow the system setting">Auto</button>
+        </div>
         <div class="system-status">
           <div class="status-dot" id="server-status-dot"></div>
           <span id="server-status-text">Connecting...</span>
@@ -94,126 +107,137 @@
 
       <!-- Mobile Header -->
       <header class="mobile-header">
-        <button class="menu-toggle-btn" id="menu-toggle-btn" aria-label="Toggle Menu">
-          <span></span>
-          <span></span>
-          <span></span>
+        <button type="button" class="menu-toggle-btn" id="menu-toggle-btn" aria-label="Open menu" aria-controls="sidebar" aria-expanded="false">
+          <span></span><span></span><span></span>
         </button>
         <div class="mobile-brand">
-          <span class="mobile-brand-text">Beatrice V2</span>
+          <svg viewBox="0 0 64 64" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3.0"><path d="M32 47 C 29.5 39, 34.5 31, 32 22.4"/><path d="M6 51 Q12.5 42 19 51 T32 51 T45 51 T58 51"/></g><g fill="currentColor" stroke="none"><path d="M32.00 15.80 C36.37 14.38 37.29 9.31 32.00 4.00 C26.71 9.31 27.63 14.38 32.00 15.80Z M34.77 17.40 C38.18 20.48 43.04 18.74 44.99 11.50 C37.75 9.57 33.81 12.91 34.77 17.40Z M34.77 20.60 C33.81 25.09 37.75 28.43 44.99 26.50 C43.04 19.26 38.18 17.52 34.77 20.60Z M32.00 22.20 C27.63 23.62 26.71 28.69 32.00 34.00 C37.29 28.69 36.37 23.62 32.00 22.20Z M29.23 20.60 C25.82 17.52 20.96 19.26 19.01 26.50 C26.25 28.43 30.19 25.09 29.23 20.60Z M29.23 17.40 C30.19 12.91 26.25 9.57 19.01 11.50 C20.96 18.74 25.82 20.48 29.23 17.40Z M30.00 19.00 a2.00 2.00 0 1 0 4.00 0 a2.00 2.00 0 1 0 -4.00 0Z"/></g></svg>
+          <span class="mobile-brand-text">Beatrice Trainer</span>
         </div>
       </header>
 
       <!-- ===== DASHBOARD ===== -->
       <section class="page-view active" id="page-dashboard">
-        <div class="page-header">
-          <h1>Beatrice V2 Trainer</h1>
-          <p>Train custom voice conversion models with hardware acceleration or Google Colab.</p>
-        </div>
+        <div class="page-inner">
+          <div class="page-header">
+            <span class="eyebrow">Overview</span>
+            <h1>Train your own voice</h1>
+            <p>Turn a folder of recordings into a voice model for the Beatrice voice changer. Training runs on this PC and uses an NVIDIA GPU through CUDA when it can. CPU works too, but it is slow.</p>
+          </div>
 
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-label">System Device</div>
-            <div class="stat-value" id="stat-device">System</div>
-            <div class="stat-sub" id="stat-device-sub">Detecting...</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Loaded Speakers</div>
-            <div class="stat-value" id="stat-speakers">0</div>
-            <div class="stat-sub">datasets ready</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Audio Files</div>
-            <div class="stat-value" id="stat-files">0</div>
-            <div class="stat-sub">WAV files total</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Trained Models</div>
-            <div class="stat-value" id="stat-models">0</div>
-            <div class="stat-sub">models available</div>
-          </div>
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="card mb-lg">
-          <div class="card-header">
-            <h3>Quick Actions</h3>
-          </div>
-          <div class="card-body" style="display: flex; gap: var(--space-md); flex-wrap: wrap;">
-            <button class="btn btn-primary" onclick="navigateTo('dataset')">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              Upload Dataset
-            </button>
-            <button class="btn btn-secondary" onclick="navigateTo('training')">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-              Start Training
-            </button>
-            <button class="btn btn-secondary" onclick="navigateTo('colab')">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
-              Colab Guide
-            </button>
-          </div>
-        </div>
-
-        <!-- System Info & Memory Monitor -->
-        <div class="grid-2">
-          <!-- System Info -->
-          <div class="card">
-            <div class="card-header">
-              <h3>System Information</h3>
-              <button class="btn btn-sm btn-secondary" onclick="refreshSystemInfo()">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-                Refresh
-              </button>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-label">Device</div>
+              <div class="stat-value is-text" id="stat-device">Detecting...</div>
+              <div class="stat-sub" id="stat-device-sub">Checking compute backend</div>
             </div>
-            <div class="card-body">
-              <div class="grid-2">
-                <div>
-                  <div class="form-label">Platform</div>
-                  <div id="sys-platform" class="font-mono text-secondary">Detecting...</div>
-                </div>
-                <div>
-                  <div class="form-label">Compute Backend</div>
-                  <div id="sys-compute" class="font-mono text-secondary">Detecting...</div>
-                </div>
-                <div>
-                  <div class="form-label">Beatrice Trainer</div>
-                  <div id="sys-beatrice" class="font-mono text-secondary">Checking...</div>
-                </div>
-                <div>
-                  <div class="form-label">Server Status</div>
-                  <div id="sys-server" class="font-mono text-secondary">Checking...</div>
-                </div>
+            <div class="stat-card">
+              <div class="stat-label">Speakers</div>
+              <div class="stat-value" id="stat-speakers">0</div>
+              <div class="stat-sub">datasets ready</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Audio files</div>
+              <div class="stat-value" id="stat-files">0</div>
+              <div class="stat-sub">WAV files in total</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Models</div>
+              <div class="stat-value" id="stat-models">0</div>
+              <div class="stat-sub">trained and ready to export</div>
+            </div>
+          </div>
+
+          <!-- Workflow -->
+          <div class="card mb-lg">
+            <div class="card-header">
+              <h3>How it works</h3>
+              <span class="text-small text-muted">Four steps from recordings to a voice</span>
+            </div>
+            <div class="steps-grid">
+              <div class="step-card">
+                <span class="step-num">01</span>
+                <span class="step-title">Add a dataset</span>
+                <span class="step-text">Drop WAV or ZIP files, or import from Hugging Face or Kaggle.</span>
+                <button type="button" class="btn btn-primary btn-sm" onclick="navigateTo('dataset')">Add audio</button>
+              </div>
+              <div class="step-card">
+                <span class="step-num">02</span>
+                <span class="step-title">Train</span>
+                <span class="step-text">Pick the speaker; auto-tuning sets batch size for your hardware.</span>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="navigateTo('training')">Open training</button>
+              </div>
+              <div class="step-card">
+                <span class="step-num">03</span>
+                <span class="step-title">Export</span>
+                <span class="step-text">Download the inference package as a ZIP from Models.</span>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="navigateTo('models')">View models</button>
+              </div>
+              <div class="step-card">
+                <span class="step-num">04</span>
+                <span class="step-title">Use it in Beatrice</span>
+                <span class="step-text">In the voice changer, choose Upload Custom Model and pick the ZIP.</span>
+                <a class="btn btn-secondary btn-sm" href="https://project-beatrice.vercel.app" target="_blank" rel="noopener">Get Beatrice</a>
               </div>
             </div>
           </div>
 
-          <!-- Memory Monitor -->
-          <div class="card">
-            <div class="card-header">
-              <h3>Memory & GPU Monitor</h3>
-              <span class="badge badge-info" id="mem-status-badge">Active</span>
-            </div>
-            <div class="card-body">
-              <div class="form-group mb-md">
-                <div class="flex-between mb-xs">
-                  <span class="form-label mb-0">System RAM</span>
-                  <span class="text-small font-mono text-secondary" id="ram-usage-text">0.0 GB / 0.0 GB (0%)</span>
+          <div class="grid-2">
+            <!-- System Info -->
+            <div class="card">
+              <div class="card-header">
+                <h3>System</h3>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="refreshSystemInfo()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                  Refresh
+                </button>
+              </div>
+              <div class="kv-grid">
+                <div>
+                  <div class="kv-label">Platform</div>
+                  <div id="sys-platform" class="kv-value">Detecting...</div>
                 </div>
-                <div class="progress-bar-track">
+                <div>
+                  <div class="kv-label">Compute backend</div>
+                  <div id="sys-compute" class="kv-value">Detecting...</div>
+                </div>
+                <div>
+                  <div class="kv-label">Beatrice trainer</div>
+                  <div id="sys-beatrice" class="kv-value">Checking...</div>
+                </div>
+                <div>
+                  <div class="kv-label">Server</div>
+                  <div id="sys-server" class="kv-value">Checking...</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Memory Monitor -->
+            <div class="card">
+              <div class="card-header">
+                <h3>Memory</h3>
+                <span class="badge badge-dot" id="mem-status-badge">Waiting</span>
+              </div>
+              <div class="form-group">
+                <div class="progress-meta">
+                  <span>System RAM</span>
+                  <span class="font-mono" id="ram-usage-text">-</span>
+                </div>
+                <div class="progress-bar-track lg">
                   <div class="progress-bar-fill" id="ram-progress-bar" style="width: 0%"></div>
                 </div>
               </div>
-              <div class="form-group mb-0" id="mps-mem-container" style="display: none;">
-                <div class="flex-between mb-xs">
-                  <span class="form-label mb-0" id="gpu-mem-title">GPU VRAM Allocation</span>
-                  <span class="text-small font-mono text-secondary" id="mps-usage-text">0.0 GB Allocated</span>
+              <div class="mb-0" id="mps-mem-container" hidden>
+                <div class="progress-meta">
+                  <span id="gpu-mem-title">GPU memory</span>
+                  <span class="font-mono" id="mps-usage-text">-</span>
                 </div>
-                <div class="text-muted text-small" id="mps-driver-text">Driver: 0.0 GB</div>
+                <div class="progress-bar-track lg">
+                  <div class="progress-bar-fill" id="gpu-progress-bar" style="width: 0%"></div>
+                </div>
+                <div class="form-hint" id="mps-driver-text"></div>
               </div>
-              <div class="empty-state py-sm" id="mps-mem-empty" style="display: block;">
-                <p class="text-muted text-small">Select CUDA/MPS backend or start training to view GPU allocation.</p>
-              </div>
+              <p class="text-small text-muted" id="mps-mem-empty">GPU memory shows up here when PyTorch can use an NVIDIA GPU (CUDA).</p>
             </div>
           </div>
         </div>
@@ -221,141 +245,125 @@
 
       <!-- ===== DATASET ===== -->
       <section class="page-view" id="page-dataset">
-        <div class="page-header">
-          <h1>Dataset Manager</h1>
-          <p>Create a speaker dataset by choosing <strong>any ONE method</strong> below.</p>
-        </div>
-
-        <!-- Speaker Name Header Card -->
-        <div class="card mb-lg">
-          <div class="card-body">
-            <div class="form-group" style="margin-bottom: 0;">
-              <label class="form-label" for="speaker-name">Speaker Name</label>
-              <input type="text" class="form-input" id="speaker-name" placeholder="e.g. my_voice" value="">
-              <div class="form-hint">Dataset folder name for storing audio files.</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Import Method Selection Header -->
-        <div class="card mb-lg">
-          <div class="card-header" style="margin-bottom: var(--space-md);">
-            <div>
-              <h3 style="margin-bottom: 2px;">Choose Import Method</h3>
-              <p class="text-muted text-small">Select any one option to populate your dataset.</p>
-            </div>
-            <span class="badge badge-info" id="active-speaker-badge">Speaker: unnamed</span>
+        <div class="page-inner">
+          <div class="page-header">
+            <span class="eyebrow">Step 01</span>
+            <h1>Dataset</h1>
+            <p>Name the speaker, then add their recordings with any one of the three methods below. Clean speech from a single speaker, without music or background noise, works best.</p>
           </div>
 
-          <div class="card-body">
-            <!-- Method Tabs -->
-            <div class="method-tab-group" style="display: flex; gap: 8px; margin-bottom: var(--space-md); border-bottom: 1px solid var(--border-subtle); padding-bottom: var(--space-md);">
-              <button type="button" class="btn btn-secondary method-tab active" id="tab-method-local" onclick="switchImportMethod('local')">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                Local Audio Files
+          <div class="card mb-lg">
+            <div class="form-group mb-0">
+              <label class="form-label" for="speaker-name">Speaker name</label>
+              <input type="text" class="form-input" id="speaker-name" placeholder="e.g. my_voice" autocomplete="off" spellcheck="false">
+              <div class="form-hint">Used as the dataset folder name. Letters, numbers, dashes and underscores.</div>
+            </div>
+          </div>
+
+          <div class="card mb-lg">
+            <div class="card-header">
+              <div>
+                <h3>Add audio</h3>
+                <p class="text-small text-muted">Choose one method.</p>
+              </div>
+              <span class="badge" id="active-speaker-badge">Speaker: unnamed</span>
+            </div>
+
+            <div class="segmented lg mb-lg" role="tablist" aria-label="Import method">
+              <button type="button" class="seg-btn method-tab active" id="tab-method-local" role="tab" aria-selected="true" onclick="switchImportMethod('local')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Local files
               </button>
-              <button type="button" class="btn btn-secondary method-tab" id="tab-method-hf" onclick="switchImportMethod('hf')">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+              <button type="button" class="seg-btn method-tab" id="tab-method-hf" role="tab" aria-selected="false" onclick="switchImportMethod('hf')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
                 Hugging Face
               </button>
-              <button type="button" class="btn btn-secondary method-tab" id="tab-method-kaggle" onclick="switchImportMethod('kaggle')">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                Kaggle Dataset
+              <button type="button" class="seg-btn method-tab" id="tab-method-kaggle" role="tab" aria-selected="false" onclick="switchImportMethod('kaggle')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+                Kaggle
               </button>
             </div>
 
             <!-- Option 1: Local Drop Zone -->
             <div id="import-container-local">
-              <div class="drop-zone" id="drop-zone">
+              <div class="drop-zone" id="drop-zone" role="button" tabindex="0" aria-label="Choose WAV or ZIP files">
                 <div class="drop-zone-icon">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 </div>
-                <div class="drop-zone-text">Drag & drop WAV or ZIP files here</div>
-                <div class="drop-zone-hint">or click to browse • WAV or ZIP format • 16kHz mono recommended</div>
+                <div class="drop-zone-text">Drop WAV or ZIP files here</div>
+                <div class="drop-zone-hint">or click to browse. ZIP files are unpacked and their WAV files added.</div>
                 <input type="file" id="file-input" accept=".wav,.zip" multiple hidden>
+              </div>
+              <div id="upload-progress-container" class="mt-md" hidden>
+                <div class="progress-meta">
+                  <span id="upload-status">Uploading...</span>
+                  <span class="font-mono" id="upload-progress-pct">0%</span>
+                </div>
+                <div class="progress-bar-track"><div class="progress-bar-fill" id="upload-progress-bar" style="width: 0%"></div></div>
               </div>
             </div>
 
             <!-- Option 2: Hugging Face Import -->
-            <div id="import-container-hf" style="display: none;">
-              <div class="form-group mb-0">
-                <label class="form-label" for="hf-repo-id">Dataset Repository ID or URL</label>
-                <div style="display: flex; gap: var(--space-md); align-items: center; width: 100%;">
-                  <input type="text" class="form-input" id="hf-repo-id" placeholder="e.g. meoconxinhxan/trump-speech-dataset-tts" value="" style="flex: 1; margin-bottom: 0;">
-                  <button class="btn btn-primary" id="btn-import-hf" onclick="importFromHF()" style="height: 38px;">
-                    Import Dataset
-                  </button>
-                </div>
-                <div class="form-hint" style="margin-top: var(--space-xs);">Full Hugging Face dataset URLs are supported.</div>
+            <div id="import-container-hf" hidden>
+              <label class="form-label" for="hf-repo-id">Dataset repository ID or URL</label>
+              <div class="input-row">
+                <input type="text" class="form-input font-mono" id="hf-repo-id" placeholder="e.g. meoconxinhxan/trump-speech-dataset-tts" autocomplete="off" spellcheck="false">
+                <button type="button" class="btn btn-primary" id="btn-import-hf" onclick="importFromHF()">Import dataset</button>
               </div>
+              <div class="form-hint">Paste an ID or a full huggingface.co/datasets URL. Public datasets only.</div>
 
-              <!-- Progress bar -->
-              <div id="hf-import-progress-container" style="display: none; margin-top: var(--space-md);">
-                <div class="flex-between mb-xs">
-                  <span class="text-small text-muted" id="hf-import-status">Initializing...</span>
-                  <span class="text-small font-mono" id="hf-import-progress-pct">0%</span>
+              <div id="hf-import-progress-container" class="mt-md" hidden>
+                <div class="progress-meta">
+                  <span id="hf-import-status">Initializing...</span>
+                  <span class="font-mono" id="hf-import-progress-pct">0%</span>
                 </div>
-                <div class="progress-bar-track">
-                  <div class="progress-bar-fill" id="hf-import-progress-bar" style="width: 0%"></div>
-                </div>
+                <div class="progress-bar-track"><div class="progress-bar-fill" id="hf-import-progress-bar" style="width: 0%"></div></div>
               </div>
             </div>
 
             <!-- Option 3: Kaggle Import -->
-            <div id="import-container-kaggle" style="display: none;">
+            <div id="import-container-kaggle" hidden>
               <div class="grid-2 mb-md">
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label class="form-label" for="kaggle-username">Kaggle Username</label>
-                  <input type="text" class="form-input" id="kaggle-username" placeholder="e.g. username" value="" style="margin-bottom: 0;">
+                <div>
+                  <label class="form-label" for="kaggle-username">Kaggle username</label>
+                  <input type="text" class="form-input" id="kaggle-username" placeholder="e.g. username" autocomplete="off" spellcheck="false">
                 </div>
-                <div class="form-group" style="margin-bottom: 0;">
-                  <label class="form-label" for="kaggle-key">Kaggle API Token</label>
-                  <input type="password" class="form-input" id="kaggle-key" placeholder="e.g. 12ab34cd56ef..." value="" style="margin-bottom: 0;">
-                </div>
-              </div>
-
-              <div class="form-group mb-0">
-                <label class="form-label" for="kaggle-dataset-ref">Dataset Repository ID or URL</label>
-                <div style="display: flex; gap: var(--space-md); align-items: center; width: 100%;">
-                  <input type="text" class="form-input" id="kaggle-dataset-ref" placeholder="e.g. dmitrybabko/speech-dataset-ch1" value="" style="flex: 1; margin-bottom: 0;">
-                  <button class="btn btn-primary" id="btn-import-kaggle" onclick="importFromKaggle()" style="height: 38px;">
-                    Import Dataset
-                  </button>
+                <div>
+                  <label class="form-label" for="kaggle-key">Kaggle API key</label>
+                  <input type="password" class="form-input font-mono" id="kaggle-key" placeholder="From kaggle.com/settings" autocomplete="off">
                 </div>
               </div>
+              <label class="form-label" for="kaggle-dataset-ref">Dataset reference or URL</label>
+              <div class="input-row">
+                <input type="text" class="form-input font-mono" id="kaggle-dataset-ref" placeholder="e.g. owner/dataset-name" autocomplete="off" spellcheck="false">
+                <button type="button" class="btn btn-primary" id="btn-import-kaggle" onclick="importFromKaggle()">Import dataset</button>
+              </div>
+              <div class="form-hint" id="kaggle-key-hint">Your key is saved to ~/.kaggle/kaggle.json on this computer and is only sent to Kaggle.</div>
 
-              <!-- Progress bar -->
-              <div id="kaggle-import-progress-container" style="display: none; margin-top: var(--space-md);">
-                <div class="flex-between mb-xs">
-                  <span class="text-small text-muted" id="kaggle-import-status">Initializing...</span>
-                  <span class="text-small font-mono" id="kaggle-import-progress-pct">0%</span>
+              <div id="kaggle-import-progress-container" class="mt-md" hidden>
+                <div class="progress-meta">
+                  <span id="kaggle-import-status">Initializing...</span>
+                  <span class="font-mono" id="kaggle-import-progress-pct">0%</span>
                 </div>
-                <div class="progress-bar-track">
-                  <div class="progress-bar-fill" id="kaggle-import-progress-bar" style="width: 0%"></div>
-                </div>
+                <div class="progress-bar-track"><div class="progress-bar-fill" id="kaggle-import-progress-bar" style="width: 0%"></div></div>
               </div>
             </div>
-
           </div>
-        </div>
 
-        <!-- File List -->
-        <div class="card">
-          <div class="card-header">
-            <h3>Uploaded Files</h3>
-            <div style="display: flex; gap: var(--space-sm); align-items: center;">
-              <span class="text-muted text-small" id="file-count-label">0 files</span>
-              <button class="btn btn-sm btn-secondary" onclick="refreshDataset()">Refresh</button>
+          <!-- File List -->
+          <div class="card">
+            <div class="card-header">
+              <h3>Speakers</h3>
+              <div class="card-actions">
+                <span class="text-small text-muted" id="file-count-label">0 files</span>
+                <button type="button" class="btn btn-sm btn-secondary" onclick="refreshDataset()">Refresh</button>
+              </div>
             </div>
-          </div>
-          <div class="card-body">
             <div id="dataset-speakers-list">
               <div class="empty-state">
-                <div class="empty-state-icon">
-                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                </div>
-                <h3>No datasets uploaded yet</h3>
-                <p class="text-muted">Upload WAV files above to create your speaker dataset.</p>
+                <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg></div>
+                <h3>No datasets yet</h3>
+                <p>Add audio above to create your first speaker.</p>
               </div>
             </div>
           </div>
@@ -364,186 +372,171 @@
 
       <!-- ===== TRAINING ===== -->
       <section class="page-view" id="page-training">
-        <div class="page-header">
-          <h1>Training Control</h1>
-          <p>Configure and monitor custom voice model training parameters.</p>
-        </div>
-
-        <!-- Training Config -->
-        <div class="card mb-lg">
-          <div class="card-header">
-            <h3>Training Configuration</h3>
-            <button class="btn btn-sm btn-secondary" onclick="autoConfigureParams()">Auto-Tuning</button>
+        <div class="page-inner">
+          <div class="page-header">
+            <span class="eyebrow">Step 02</span>
+            <h1>Training</h1>
+            <p>Pick a speaker and start. Auto-tuning fills in batch size and workers for this machine; you can change them under Advanced.</p>
           </div>
-          <div class="card-body">
-            <div class="grid-2">
-              <!-- Left Column: Core Setup -->
+
+          <!-- Training error -->
+          <div class="alert alert-error" id="training-error" role="alert" hidden>
+            <div class="alert-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+            <div class="alert-body">
+              <div class="alert-title" id="training-error-title">Training failed</div>
+              <div class="alert-message" id="training-error-message"></div>
+              <div class="alert-hint" id="training-error-hint">The console log below has the full output.</div>
+            </div>
+            <button type="button" class="icon-btn" onclick="dismissTrainingError()">Dismiss</button>
+          </div>
+
+          <!-- Training Config -->
+          <div class="card mb-lg">
+            <div class="card-header">
+              <h3>Configuration</h3>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="autoConfigureParams(true)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg>
+                Auto-tune
+              </button>
+            </div>
+            <div class="split">
+              <!-- Left: core setup -->
               <div>
                 <div class="form-group">
                   <label class="form-label" for="train-speaker">Speaker</label>
                   <select class="form-select" id="train-speaker" onchange="autoConfigureParams()">
-                    <option value="">— Select Speaker —</option>
+                    <option value="">Select a speaker</option>
                   </select>
                 </div>
-                <div class="form-group">
-                  <div class="flex-between">
-                    <label class="form-label" for="train-steps">Training Steps</label>
-                    <span class="text-small text-muted" id="steps-recommended-badge">Auto: —</span>
+                <div class="grid-2">
+                  <div class="form-group">
+                    <div class="label-row">
+                      <label class="form-label" for="train-steps">Training steps</label>
+                      <span class="text-small text-muted font-mono" id="steps-recommended-badge">Auto: -</span>
+                    </div>
+                    <input type="number" class="form-input font-mono" id="train-steps" value="10000" min="100" max="100000" step="100">
                   </div>
-                  <input type="number" class="form-input" id="train-steps" value="10000" min="100" max="100000" step="100">
-                  <div class="form-hint">Recommended steps based on audio file count.</div>
-                </div>
-                <div class="form-group">
-                  <label class="form-label" for="train-lr">Learning Rate</label>
-                  <input type="text" class="form-input" id="train-lr" value="1e-4">
-                  <div class="form-hint">Default: 1e-4</div>
+                  <div class="form-group">
+                    <label class="form-label" for="train-lr">Learning rate</label>
+                    <input type="text" class="form-input font-mono" id="train-lr" value="1e-4" spellcheck="false">
+                  </div>
                 </div>
 
-                <!-- Advanced Settings Toggle -->
-                <div style="margin-top: var(--space-md); margin-bottom: var(--space-md);">
-                  <button type="button" class="btn btn-sm btn-secondary" onclick="toggleAdvancedSettings()" id="btn-toggle-advanced">
-                    Show Advanced Hardware Settings
-                  </button>
-                </div>
+                <button type="button" class="btn btn-sm btn-ghost" onclick="toggleAdvancedSettings()" id="btn-toggle-advanced" aria-expanded="false" aria-controls="advanced-settings-block">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                  <span>Show advanced settings</span>
+                </button>
 
-                <!-- Advanced Settings Block -->
-                <div id="advanced-settings-block" style="display: none; border-top: 1px solid var(--border-subtle); padding-top: var(--space-md); margin-top: var(--space-md);">
+                <div id="advanced-settings-block" class="divider-top" hidden>
                   <div class="grid-2">
                     <div class="form-group">
-                      <label class="form-label" for="train-batch">Batch Size</label>
-                      <input type="number" class="form-input" id="train-batch" value="4" min="1" max="32">
+                      <label class="form-label" for="train-batch">Batch size</label>
+                      <input type="number" class="form-input font-mono" id="train-batch" value="4" min="1" max="32">
                     </div>
                     <div class="form-group">
-                      <label class="form-label" for="train-grad-accum">Gradient Accumulation</label>
-                      <input type="number" class="form-input" id="train-grad-accum" value="1" min="1" max="32">
+                      <label class="form-label" for="train-grad-accum">Gradient accumulation</label>
+                      <input type="number" class="form-input font-mono" id="train-grad-accum" value="1" min="1" max="32">
                     </div>
-                  </div>
-                  <div class="grid-2">
-                    <div class="form-group">
-                      <label class="form-label" for="train-workers">Data Workers</label>
-                      <input type="number" class="form-input" id="train-workers" value="2" min="0" max="16">
+                    <div class="form-group mb-0">
+                      <label class="form-label" for="train-workers">Data workers</label>
+                      <input type="number" class="form-input font-mono" id="train-workers" value="0" min="0" max="16">
                     </div>
-                    <div class="form-group" style="display: flex; flex-direction: column; justify-content: center;">
-                      <label class="form-label" style="display: flex; align-items: center; gap: var(--space-sm); cursor: pointer; user-select: none;">
-                        <input type="checkbox" id="train-mixed-precision" style="width: 16px; height: 16px; accent-color: var(--accent-primary);">
-                        Mixed Precision (FP16)
+                    <div class="form-group mb-0">
+                      <span class="form-label">Precision</span>
+                      <label class="switch-row" for="train-mixed-precision">
+                        <span class="text-small text-secondary">Mixed precision (FP16)</span>
+                        <span class="switch"><input type="checkbox" id="train-mixed-precision"><span class="switch-slider"></span></span>
                       </label>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <!-- Right Column: Auto-Configuration Info & Status -->
-              <div style="border-left: 1px solid var(--border-subtle); padding-left: var(--space-lg); display: flex; flex-direction: column;">
-                <h4 style="margin-bottom: var(--space-md); font-size: 14px; font-weight: 600;" id="tuning-header-title">
-                  Hardware Auto-Tuning
-                </h4>
-                
-                <div class="empty-state py-md" id="config-empty-state" style="margin: auto 0;">
-                  <p class="text-muted text-small">Select a speaker to compute optimized parameters for your hardware.</p>
+              <!-- Right: auto-tuning details -->
+              <div class="split-aside">
+                <div class="section-label mb-md" id="tuning-header-title">Hardware auto-tuning</div>
+                <div class="empty-state compact" id="config-empty-state">
+                  <p>Select a speaker to calculate settings for your hardware.</p>
                 </div>
-
-                <div id="config-tuning-details" style="display: none; flex: 1;">
-                  <div style="background: rgba(0, 0, 0, 0.2); padding: var(--space-md); border-radius: var(--radius-md); margin-bottom: var(--space-md); font-size: 0.8125rem;">
-                    <div class="flex-between mb-sm">
-                      <span class="text-muted">Target Device:</span>
-                      <strong class="font-mono" id="config-val-device">—</strong>
-                    </div>
-                    <div class="flex-between mb-sm">
-                      <span class="text-muted">Opt. Batch Size:</span>
-                      <strong class="font-mono" id="config-val-batch">—</strong>
-                    </div>
-                    <div class="flex-between mb-sm">
-                      <span class="text-muted">Opt. Grad Accum:</span>
-                      <strong class="font-mono" id="config-val-accum">—</strong>
-                    </div>
-                    <div class="flex-between mb-sm">
-                      <span class="text-muted">Effective Batch:</span>
-                      <strong class="font-mono" id="config-val-effective">—</strong>
-                    </div>
-                    <div class="flex-between">
-                      <span class="text-muted">Est. Training Time:</span>
-                      <strong class="font-mono text-accent" id="config-val-time">—</strong>
-                    </div>
+                <div id="config-tuning-details" hidden>
+                  <div class="kv-list">
+                    <div class="kv-row"><span>Device</span><strong id="config-val-device">-</strong></div>
+                    <div class="kv-row"><span>Batch size</span><strong id="config-val-batch">-</strong></div>
+                    <div class="kv-row"><span>Gradient accumulation</span><strong id="config-val-accum">-</strong></div>
+                    <div class="kv-row"><span>Effective batch</span><strong id="config-val-effective">-</strong></div>
+                    <div class="kv-row"><span>Rough time estimate</span><strong class="text-accent" id="config-val-time">-</strong></div>
                   </div>
-
-                  <div style="display: flex; flex-direction: column; gap: var(--space-xs);" id="config-opt-notes">
-                    <!-- notes list -->
-                  </div>
+                  <div class="note-list" id="config-opt-notes"></div>
                 </div>
               </div>
             </div>
 
-            <div style="display: flex; gap: var(--space-md); margin-top: var(--space-lg); border-top: 1px solid var(--border-subtle); padding-top: var(--space-lg);">
-              <button class="btn btn-primary btn-lg" id="btn-start-training" onclick="startTraining()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                Start Training
+            <div class="flex-row divider-top">
+              <button type="button" class="btn btn-primary btn-lg" id="btn-start-training" onclick="startTraining()">
+                <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 4.5v15a1 1 0 0 0 1.53.85l12-7.5a1 1 0 0 0 0-1.7l-12-7.5A1 1 0 0 0 7 4.5z"/></svg>
+                Start training
               </button>
-              <button class="btn btn-danger btn-lg" id="btn-stop-training" onclick="stopTraining()" style="display: none;">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12"/></svg>
-                Stop Training
+              <button type="button" class="btn btn-danger btn-lg" id="btn-stop-training" onclick="stopTraining()" hidden>
+                <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                Stop training
               </button>
+              <span class="text-small text-muted" id="training-hint">Training keeps running if you switch pages.</span>
             </div>
           </div>
-        </div>
 
-        <!-- Training Progress -->
-        <div class="card mb-lg" id="training-progress-card" style="display: none;">
-          <div class="card-header">
-            <h3>Training Metrics & Loss</h3>
-            <span class="badge badge-success" id="training-status-badge">Running</span>
-          </div>
-          <div class="card-body">
-            <div class="stats-grid" style="margin-bottom: var(--space-lg);">
+          <!-- Training Progress -->
+          <div class="card mb-lg" id="training-progress-card" hidden>
+            <div class="card-header">
+              <h3>Progress <span class="text-small text-muted font-mono" id="training-speaker-label"></span></h3>
+              <span class="badge badge-live badge-dot" id="training-status-badge">Running</span>
+            </div>
+            <div class="stats-grid">
               <div class="stat-card">
-                <div class="stat-label">Current Step</div>
+                <div class="stat-label">Step</div>
                 <div class="stat-value font-mono" id="train-current-step">0</div>
-                <div class="stat-sub" id="train-total-steps-label">/ 10,000</div>
+                <div class="stat-sub font-mono" id="train-total-steps-label">/ 10,000</div>
               </div>
               <div class="stat-card">
                 <div class="stat-label">Loss</div>
-                <div class="stat-value font-mono" id="train-loss">—</div>
-                <div class="stat-sub">current loss value</div>
+                <div class="stat-value font-mono" id="train-loss">-</div>
+                <div class="stat-sub">latest value</div>
               </div>
               <div class="stat-card">
-                <div class="stat-label">ETA</div>
-                <div class="stat-value font-mono" id="train-eta">—</div>
-                <div class="stat-sub">estimated remaining</div>
+                <div class="stat-label">Time left</div>
+                <div class="stat-value font-mono" id="train-eta">-</div>
+                <div class="stat-sub">estimated</div>
               </div>
               <div class="stat-card">
                 <div class="stat-label">Speed</div>
-                <div class="stat-value font-mono" id="train-speed">—</div>
+                <div class="stat-value font-mono" id="train-speed">-</div>
                 <div class="stat-sub">steps per second</div>
               </div>
             </div>
 
-            <!-- Progress bar -->
-            <div style="margin-bottom: var(--space-lg);">
-              <div class="flex-between mb-md">
-                <span class="text-small text-muted">Progress</span>
-                <span class="text-small font-mono" id="train-progress-pct">0%</span>
+            <div class="mb-lg">
+              <div class="progress-meta">
+                <span id="train-progress-label">Progress</span>
+                <span class="font-mono" id="train-progress-pct">0%</span>
               </div>
-              <div class="progress-bar-track">
+              <div class="progress-bar-track lg">
                 <div class="progress-bar-fill" id="train-progress-bar" style="width: 0%"></div>
               </div>
             </div>
 
-            <!-- Loss chart -->
+            <div class="section-label mb-sm">Loss</div>
             <div class="training-chart-container">
-              <canvas id="loss-chart"></canvas>
+              <canvas id="loss-chart" aria-label="Loss over training steps" role="img"></canvas>
             </div>
           </div>
-        </div>
 
-        <!-- Training Log -->
-        <div class="card">
-          <div class="card-header">
-            <h3>Console Log</h3>
-            <button class="btn btn-sm btn-secondary" onclick="clearLog()">Clear</button>
-          </div>
-          <div class="card-body">
-            <div class="log-console" id="training-log">
-              <div class="log-line log-info">[INFO] Ready for training execution.</div>
+          <!-- Training Log -->
+          <div class="card">
+            <div class="card-header">
+              <h3>Console</h3>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="clearLog()">Clear</button>
+            </div>
+            <div class="log-console" id="training-log" role="log" aria-live="off">
+              <div class="log-line log-info">Ready. Output from the trainer appears here.</div>
             </div>
           </div>
         </div>
@@ -551,173 +544,154 @@
 
       <!-- ===== MODELS ===== -->
       <section class="page-view" id="page-models">
-        <div class="page-header">
-          <h1>Trained Models</h1>
-          <p>Browse and export voice conversion models.</p>
-        </div>
-
-        <div class="card">
-          <div class="card-header">
-            <h3>Available Models</h3>
-            <button class="btn btn-sm btn-secondary" onclick="refreshModels()">Refresh</button>
+        <div class="page-inner">
+          <div class="page-header">
+            <span class="eyebrow">Step 03</span>
+            <h1>Models</h1>
+            <p>Download a finished model as a ZIP, then open the Beatrice voice changer, choose <strong>Upload Custom Model</strong> in the model menu and pick that ZIP.</p>
           </div>
-          <div class="card-body" id="models-list">
-            <div class="empty-state">
-              <div class="empty-state-icon">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="4" y="4" width="16" height="16" rx="2"/><rect x="9" y="9" width="6" height="6"/></svg>
+
+          <div class="card">
+            <div class="card-header">
+              <h3>Trained models</h3>
+              <button type="button" class="btn btn-sm btn-secondary" onclick="refreshModels()">Refresh</button>
+            </div>
+            <div id="models-list">
+              <div class="empty-state">
+                <div class="empty-state-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></div>
+                <h3>No trained models yet</h3>
+                <p>Finished training runs show up here.</p>
               </div>
-              <h3>No trained models yet</h3>
-              <p class="text-muted">Start training a voice model to generate output weights here.</p>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- ===== COLAB & CLOUD ===== -->
+      <!-- ===== CLOUD ===== -->
       <section class="page-view" id="page-colab">
-        <div class="page-header">
-          <h1>Cloud Training Launchpad</h1>
-          <p>Train custom voice conversion models on Google Colab or Kaggle cloud GPUs.</p>
-        </div>
-
-        <!-- One-Click Cloud Launchpad Card -->
-        <div class="card mb-lg">
-          <div class="card-header flex-between">
-            <div>
-              <h3 style="margin-bottom: 2px;">Cloud Jupyter Notebooks</h3>
-              <p class="text-muted text-small">One-click launch options for free cloud T4 / A100 GPU acceleration.</p>
-            </div>
-            <a href="https://github.com/Project-Beatrice-V2/Beatrice-colab.git" target="_blank" class="btn btn-secondary btn-sm" style="display:inline-flex; align-items:center; gap:6px;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
-              GitHub Repository
-            </a>
+        <div class="page-inner">
+          <div class="page-header">
+            <span class="eyebrow">Cloud</span>
+            <h1>Train in the cloud</h1>
+            <p>No fast GPU? Train for free on Google Colab or Kaggle with the Beatrice notebooks, then import the result the same way.</p>
           </div>
-          <div class="card-body">
-            <div class="grid-2" style="gap: var(--space-lg);">
-              
-              <!-- Google Colab Card -->
-              <div style="background: var(--bg-canvas); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: var(--space-lg); display: flex; flex-direction: column; justify-content: space-between;">
+
+          <div class="card mb-lg">
+            <div class="card-header">
+              <div>
+                <h3>Notebooks</h3>
+                <p class="text-small text-muted">Free NVIDIA T4 GPUs, subject to each service's limits.</p>
+              </div>
+              <a href="https://github.com/Project-Beatrice-V2/Beatrice-colab" target="_blank" rel="noopener" class="btn btn-secondary btn-sm">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+                Source on GitHub
+              </a>
+            </div>
+            <div class="grid-2">
+              <div class="launch-card">
                 <div>
-                  <div style="display: flex; align-items: center; gap: 10px; margin-bottom: var(--space-sm);">
-                    <div style="width: 32px; height: 32px; border-radius: 6px; background: rgba(245, 158, 11, 0.12); display: flex; align-items: center; justify-content: center; color: #f59e0b;">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
-                    </div>
-                    <h4 style="margin: 0; font-size: 16px;">Google Colab</h4>
+                  <div class="launch-head">
+                    <div class="launch-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg></div>
+                    <h4>Google Colab</h4>
                   </div>
-                  <p class="text-muted text-small" style="line-height: 1.5; margin-bottom: var(--space-md);">
-                    Train on free T4/A100 GPUs with direct Google Drive integration for automatic checkpoint saving.
-                  </p>
+                  <p>Saves your data and checkpoints to Google Drive, so a disconnected session can resume.</p>
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 8px;">
-                  <a href="https://colab.research.google.com/github/Project-Beatrice-V2/Beatrice-colab/blob/main/BeatriceV2_Trainer_Notebook_Colab.ipynb" target="_blank" class="btn btn-primary" style="justify-content: center; gap: 8px;">
-                    <img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open In Colab" style="height: 20px;">
+                <div class="launch-actions">
+                  <a href="https://colab.research.google.com/github/Project-Beatrice-V2/Beatrice-colab/blob/main/BeatriceV2_Trainer_Notebook_Colab.ipynb" target="_blank" rel="noopener" class="btn btn-primary">
+                    Open in Colab
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M7 7h10v10"/></svg>
                   </a>
-                  <a href="colab_repo/BeatriceV2_Trainer_Notebook_Colab.ipynb" download class="btn btn-secondary btn-sm" style="justify-content: center;">
-                    Download .ipynb file
-                  </a>
+                  <a href="colab_repo/BeatriceV2_Trainer_Notebook_Colab.ipynb" download class="btn btn-secondary">Download .ipynb</a>
                 </div>
               </div>
 
-              <!-- Kaggle Card -->
-              <div style="background: var(--bg-canvas); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: var(--space-lg); display: flex; flex-direction: column; justify-content: space-between;">
+              <div class="launch-card">
                 <div>
-                  <div style="display: flex; align-items: center; gap: 10px; margin-bottom: var(--space-sm);">
-                    <div style="width: 32px; height: 32px; border-radius: 6px; background: rgba(32, 190, 255, 0.12); display: flex; align-items: center; justify-content: center; color: #20beff;">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-                    </div>
-                    <h4 style="margin: 0; font-size: 16px;">Kaggle Notebook</h4>
+                  <div class="launch-head">
+                    <div class="launch-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></div>
+                    <h4>Kaggle</h4>
                   </div>
-                  <p class="text-muted text-small" style="line-height: 1.5; margin-bottom: var(--space-md);">
-                    Train on Kaggle's dual T4 or P100 GPUs with high disk throughput and Kaggle Datasets support.
-                  </p>
+                  <p>Runs on Kaggle's free GPU quota and can read Kaggle Datasets directly.</p>
                 </div>
-                <div style="display: flex; flex-direction: column; gap: 8px;">
-                  <a href="https://github.com/Project-Beatrice-V2/Beatrice-colab/blob/main/BeatriceV2_Trainer_Notebook_Kaggle.ipynb" target="_blank" class="btn btn-primary" style="background: #20beff; border-color: #20beff; color: #ffffff; justify-content: center; font-weight: 600;">
+                <div class="launch-actions">
+                  <a href="https://www.kaggle.com/kernels/welcome?src=https://github.com/Project-Beatrice-V2/Beatrice-colab/blob/main/BeatriceV2_Trainer_Notebook_Kaggle.ipynb" target="_blank" rel="noopener" class="btn btn-primary">
                     Open in Kaggle
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M7 7h10v10"/></svg>
                   </a>
-                  <a href="colab_repo/BeatriceV2_Trainer_Notebook_Kaggle.ipynb" download class="btn btn-secondary btn-sm" style="justify-content: center;">
-                    Download .ipynb file
-                  </a>
+                  <a href="colab_repo/BeatriceV2_Trainer_Notebook_Kaggle.ipynb" download class="btn btn-secondary">Download .ipynb</a>
                 </div>
               </div>
-
             </div>
           </div>
-        </div>
 
-        <!-- Workflow Guide -->
-        <div class="card mb-lg">
-          <div class="card-header">
-            <h3>Step-by-Step Workflow</h3>
-          </div>
-          <div class="card-body">
-            <div style="line-height: 1.8; color: var(--text-secondary);">
-              <p><strong>Step 1:</strong> Package your local audio dataset as a ZIP file below (or use Hugging Face repo ID in Colab).</p>
-              <p><strong>Step 2:</strong> Click <strong>Open in Google Colab</strong> or <strong>Open in Kaggle</strong> above.</p>
-              <p><strong>Step 3:</strong> Execute the notebook cells sequentially to initialize PyTorch, upload your dataset, and start training.</p>
-              <p><strong>Step 4:</strong> Download your finished <code>beatrice_vst3_files.zip</code> model paraphernalia weights when training finishes.</p>
+          <div class="grid-2 gap-lg">
+            <div class="card">
+              <div class="card-header"><h3>Workflow</h3></div>
+              <ol class="step-list">
+                <li><span>Export your dataset as a ZIP with the button on the right, or use a Hugging Face dataset ID in the notebook.</span></li>
+                <li><span>Open the notebook in Colab or Kaggle and switch the runtime to a GPU.</span></li>
+                <li><span>Run the cells in order: install, dataset, settings, then training.</span></li>
+                <li><span>Run <strong>Download Output</strong> and choose VST3 Paraphernalia to get <code>beatrice_vst3_files.zip</code>.</span></li>
+                <li><span>Import the ZIP in the Beatrice voice changer with <strong>Upload Custom Model</strong>.</span></li>
+              </ol>
             </div>
-          </div>
-        </div>
 
-        <!-- Export Dataset ZIP Card -->
-        <div class="card">
-          <div class="card-header">
-            <h3>Package Dataset for Cloud</h3>
-          </div>
-          <div class="card-body">
-            <p class="text-muted mb-md">Package your local WAV audio dataset into a single ZIP archive for instant cloud upload.</p>
-            <button class="btn btn-primary" id="btn-export-zip" onclick="exportDatasetZip()">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Export Dataset as ZIP
-            </button>
+            <div class="card">
+              <div class="card-header"><h3>Package your dataset</h3></div>
+              <p class="text-small text-secondary mb-md">Zips every speaker's WAV files into <code>beatrice_dataset.zip</code>, ready to upload to the notebook.</p>
+              <button type="button" class="btn btn-primary" id="btn-export-zip" onclick="exportDatasetZip()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Export dataset as ZIP
+              </button>
+            </div>
           </div>
         </div>
       </section>
 
       <!-- ===== SETTINGS ===== -->
       <section class="page-view" id="page-settings">
-        <div class="page-header">
-          <h1>Settings</h1>
-          <p>Configure local server parameters and environment connections.</p>
-        </div>
-
-        <div class="card mb-lg">
-          <div class="card-header">
-            <h3>API Connection</h3>
+        <div class="page-inner">
+          <div class="page-header">
+            <span class="eyebrow">Settings</span>
+            <h1>Settings</h1>
+            <p>Server connection, the Beatrice trainer package and local data.</p>
           </div>
-          <div class="card-body">
-            <div class="form-group">
-              <label class="form-label" for="api-url">API Server URL</label>
-              <input type="text" class="form-input" id="api-url" value="http://localhost:8000">
-              <div class="form-hint">FastAPI local backend URL.</div>
+
+          <div class="card mb-lg">
+            <div class="card-header"><h3>Appearance</h3></div>
+            <div class="segmented lg" role="group" aria-label="Colour mode">
+              <button type="button" class="seg-btn color-mode-btn" data-mode="dark" onclick="setColorMode('dark')">Dark</button>
+              <button type="button" class="seg-btn color-mode-btn" data-mode="light" onclick="setColorMode('light')">Light</button>
+              <button type="button" class="seg-btn color-mode-btn" data-mode="system" onclick="setColorMode('system')">System</button>
             </div>
-            <button class="btn btn-secondary" onclick="testConnection()">Test Connection</button>
           </div>
-        </div>
 
-        <div class="card mb-lg">
-          <div class="card-header">
-            <h3>Beatrice Trainer Package</h3>
-          </div>
-          <div class="card-body">
-            <div class="form-group">
-              <label class="form-label">Trainer Directory</label>
-              <div class="font-mono text-secondary" id="settings-trainer-dir">Not configured</div>
+          <div class="card mb-lg">
+            <div class="card-header"><h3>Server</h3></div>
+            <label class="form-label" for="api-url">API server URL</label>
+            <div class="input-row">
+              <input type="text" class="form-input font-mono" id="api-url" value="http://localhost:8000" spellcheck="false">
+              <button type="button" class="btn btn-secondary" onclick="testConnection()">Test connection</button>
             </div>
-            <button class="btn btn-primary" onclick="setupBeatriceTrainer()">
-              Download / Update Beatrice Trainer
-            </button>
+            <div class="form-hint">The local FastAPI server started by the start script. Default: http://localhost:8000</div>
           </div>
-        </div>
 
-        <div class="card">
-          <div class="card-header">
-            <h3>Danger Zone</h3>
+          <div class="card mb-lg">
+            <div class="card-header">
+              <h3>Beatrice trainer package</h3>
+              <span class="badge" id="settings-trainer-badge">Checking</span>
+            </div>
+            <div class="kv-list mb-lg" id="settings-trainer-dir">
+              <div class="kv-row"><span>Status</span><strong>Not checked yet</strong></div>
+            </div>
+            <button type="button" class="btn btn-primary" id="btn-setup-trainer" onclick="setupBeatriceTrainer()">Download or update trainer</button>
+            <div class="form-hint">Downloads fierce-cats/beatrice-trainer from Hugging Face, including about 175 MB of pretrained weights.</div>
           </div>
-          <div class="card-body">
-            <p class="text-muted mb-md">Reset local datasets and clear temporary files.</p>
-            <button class="btn btn-danger" onclick="clearAllData()">Reset Local Data</button>
+
+          <div class="card">
+            <div class="card-header"><h3>Reset</h3></div>
+            <p class="text-small text-secondary mb-md">Deletes every dataset and trained model on this computer. This can't be undone.</p>
+            <button type="button" class="btn btn-danger" onclick="clearAllData()">Delete all local data</button>
           </div>
         </div>
       </section>

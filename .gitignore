@@ -2,15 +2,31 @@
 venv/
 .venv/
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
 
 # System files
 .DS_Store
 Thumbs.db
 
-# Large Model / Dataset directories
-beatrice-trainer/
+# Trainer runtime data: datasets, trained models, per-run files
+# (the trainer code in beatrice-trainer/ itself IS tracked)
+beatrice-trainer/data/
+beatrice-trainer/output/
+beatrice-trainer/data_active/
+beatrice-trainer/work/
+beatrice-trainer/.cache/
+
+# Trainer weights and audio assets, downloaded from Hugging Face
+# (fierce-cats/beatrice-trainer) by start_windows.bat / `python server.py --setup`
+beatrice-trainer/assets/pretrained/
+beatrice-trainer/assets/ir/
+beatrice-trainer/assets/noise/
+beatrice-trainer/assets/test/
+beatrice-trainer/assets/images/
+
+# Logs and generated archives
+*.log
+trainer_stdout.log
 mac_repo/
 webui_repo/
 *.zip

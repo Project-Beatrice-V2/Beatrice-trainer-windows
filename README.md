@@ -1,138 +1,189 @@
-<p align="center">
-  <img src="assets/logo.jpg" alt="Project Beatrice V2 Logo" width="150" style="border-radius: 12px; box-shadow: 0 4px 20px rgba(0, 180, 216, 0.3);" />
-</p>
+<div align="center">
 
-# Project Beatrice V2 Voice Trainer (Windows & Cross-Platform)
+<img src="docs/media/app-icon.png" alt="Beatrice app icon" width="128" />
 
-[![Platform: Windows](https://img.shields.io/badge/Platform-Windows%2010%20%2F%2011-blue?logo=windows&logoColor=white&style=flat-square)](#)
-[![Python: 3.10+](https://img.shields.io/badge/Python-3.10%2B-00b4d8?logo=python&logoColor=white&style=flat-square)](#)
-[![PyTorch: CUDA 12.x](https://img.shields.io/badge/PyTorch-CUDA%2012.x-orange?logo=pytorch&logoColor=white&style=flat-square)](#)
-[![HuggingFace: fierce-cats/beatrice-trainer](https://img.shields.io/badge/HuggingFace-fierce--cats%2Fbeatrice--trainer-yellow?logo=huggingface&logoColor=white&style=flat-square)](#)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](#)
+# Beatrice Trainer for Windows
 
-A high-performance, hardware-aware desktop Web application for training custom real-time voice conversion models using **Project Beatrice V2**. Featuring a modern **Cyan Blue minimalist UI**, dynamic **Light/Dark theme toggle**, **Single-Choice Dataset Import Switcher** (Local Drop-Zone, Hugging Face, Kaggle), automated **NVIDIA GPU CUDA Hardware Tuning**, and direct **Google Colab & Kaggle Cloud Launchpad** integration.
+**Train your own voice for the Beatrice voice changer, on your Windows PC.**<br/>
+Add recordings of one speaker, press Start, then import the finished model into Beatrice with **Upload Custom Model**.
 
----
+[![Download ZIP](https://img.shields.io/badge/Download-ZIP-000000?style=for-the-badge&logo=github&logoColor=white&labelColor=000000)](https://github.com/Project-Beatrice-V2/Beatrice-trainer-windows/archive/refs/heads/main.zip)
+[![Website](https://img.shields.io/badge/Website-project--beatrice.vercel.app-7c8cff?style=for-the-badge&labelColor=000000)](https://project-beatrice.vercel.app)
+[![Stars across all Beatrice repos](https://img.shields.io/endpoint?url=https%3A%2F%2Fproject-beatrice.vercel.app%2Fapi%2Fstars%3Fformat%3Dshields&style=for-the-badge)](https://github.com/Project-Beatrice-V2)
 
-## ✨ Key Features
+![NVIDIA GPU](https://img.shields.io/badge/NVIDIA%20GPU-recommended-a887dc?style=flat-square&labelColor=000000)
+![Windows](https://img.shields.io/badge/Windows-10%20%7C%2011-a887dc?style=flat-square&labelColor=000000)
+![Python](https://img.shields.io/badge/Python-3.10%20→%203.13-a887dc?style=flat-square&labelColor=000000)
+![PyTorch CUDA](https://img.shields.io/badge/PyTorch-CUDA-a887dc?style=flat-square&labelColor=000000)
+![Runs locally](https://img.shields.io/badge/runs-locally-3dffa8?style=flat-square&labelColor=000000)
+![License](https://img.shields.io/badge/license-MIT-a1a1aa?style=flat-square&labelColor=000000)
 
-* 💎 **Cyan Blue Minimalist UI & Vector SVGs** — Ultra-sleek Linear/Vercel-inspired desktop design system with custom vector SVG icons and sharp typography (`Inter`, `Outfit`, `JetBrains Mono`).
-* 🌓 **Light & Dark Mode Theme Switcher** — Instant theme switching with persistent user preferences stored in local storage (`localStorage`).
-* 🎯 **Single-Choice Dataset Import Selector** — Segmented method picker allowing users to easily choose between **Local Audio Upload**, **Hugging Face Import**, or **Kaggle Dataset Import**.
-* ⚡ **NVIDIA CUDA Hardware Tuning** — Deep profiling for NVIDIA GPUs (RTX 4090, 4080, 4070, 3090, 3080, 3060, 2060, etc.) and Apple Silicon MPS with automatic batch size and worker optimization.
-* ☁️ **Cloud Training Launchpad** — Direct integration of `Project-Beatrice-V2/Beatrice-colab` with one-click **Google Colab** (`.ipynb`) and **Kaggle** launch buttons and local notebook downloads.
-* 📈 **Real-Time Monitoring & Metrics** — Live loss plotting on HTML Canvas, stdout logging console, and memory usage gauges.
+[Website](https://project-beatrice.vercel.app) · [Beatrice for Windows](https://github.com/satiricalguru/Beatrice-voicechanger-windows) · [Beatrice for Mac](https://github.com/satiricalguru/Beatrice-voicechanger-mac) · [Trainer for Mac](https://github.com/Project-Beatrice-V2/Beatrice-trainer-macos) · [Report a bug](https://github.com/Project-Beatrice-V2/Beatrice-trainer-windows/issues/new)
 
----
+<br/>
 
-## 🖼️ Interface Showcase
+<img src="docs/media/trainer-demo.gif" alt="Beatrice Trainer: dashboard, dataset, a training run with the live loss chart, models, cloud notebooks and light mode" width="100%" />
 
-<p align="center">
-  <img src="assets/dashboard.png" alt="Beatrice V2 Dashboard Overview" width="95%" style="border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);" />
-  <br><sub><b>Dashboard Overview</b> — Live hardware monitor, memory allocation gauges, and system diagnostics</sub>
-</p>
-
-<p align="center">
-  <img src="assets/dataset.png" alt="Beatrice V2 Dataset Manager" width="95%" style="border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);" />
-  <br><sub><b>Dataset Manager</b> — Single-choice import selector (Local Audio Drag & Drop, Hugging Face, Kaggle)</sub>
-</p>
-
-<p align="center">
-  <img src="assets/training.png" alt="Beatrice V2 Training Control" width="95%" style="border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);" />
-  <br><sub><b>Training Control</b> — Hardware auto-tuning, custom training steps, and live console logger</sub>
-</p>
-
-<p align="center">
-  <img src="assets/colab.png" alt="Cloud Training Launchpad" width="95%" style="border-radius: 10px; border: 1px solid rgba(255,255,255,0.1);" />
-  <br><sub><b>Cloud Training Launchpad</b> — One-click Google Colab and Kaggle launch cards with local .ipynb downloads</sub>
-</p>
+</div>
 
 ---
 
-## ⚡ Quick Start
+## ✨ Why Beatrice Trainer
 
-### 📋 Prerequisites
+- 🎙️ **A real Beatrice model of your voice.** It runs the upstream [Beatrice trainer](https://huggingface.co/fierce-cats/beatrice-trainer) on your recordings. There is no fake or "demo" training mode: if the trainer can't run, you see why.
+- ⚡ **Uses your NVIDIA GPU.** The start script installs the CUDA build of PyTorch when it finds an NVIDIA card, and auto-tuning picks the batch size from your VRAM.
+- 📥 **Three ways to add audio.** Drag in WAV or ZIP files, or import a dataset from Hugging Face or Kaggle.
+- 📈 **Watch it learn.** Live step count, loss chart, time left and the trainer's own console output, in a browser tab that keeps working while you switch pages.
+- 📦 **One click to Beatrice.** Download the finished model as a ZIP and import it into the voice changer with **Upload Custom Model**.
+- ☁️ **No fast GPU?** Ready-made [Colab and Kaggle notebooks](https://github.com/Project-Beatrice-V2/Beatrice-colab) train in the cloud for free.
 
-* **Operating System**: Windows 10 or Windows 11 (64-bit) / macOS 12+ / Linux.
-* **GPU**: NVIDIA GPU with CUDA support recommended (e.g., RTX 2060+, 3060+, 4060+). CPU fallback is supported.
-* **Python**: Python 3.10 or newer (make sure to check *"Add python.exe to PATH"* during installation).
+## 📸 Tour
 
-### 💻 One-Click Execution
+<table>
+  <tr>
+    <td width="50%"><img src="docs/media/trainer-training.jpg" alt="Training page with step, loss, time left, speed, a loss chart and the console" /></td>
+    <td width="50%"><img src="docs/media/trainer-dataset.jpg" alt="Dataset page with the drop zone and the list of speakers" /></td>
+  </tr>
+  <tr>
+    <td><b>Training</b><br/>Progress, loss and the trainer's console output, updated every two seconds.</td>
+    <td><b>Dataset</b><br/>Name the speaker and add audio from your disk, Hugging Face or Kaggle.</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/media/trainer-models.jpg" alt="Models page listing trained voice models and checkpoints" /></td>
+    <td width="50%"><img src="docs/media/trainer-cloud.jpg" alt="Cloud training page with Colab and Kaggle notebooks" /></td>
+  </tr>
+  <tr>
+    <td><b>Models</b><br/>Download a voice model as a ZIP for the voice changer, or keep the checkpoints.</td>
+    <td><b>Cloud training</b><br/>Open the notebooks in Colab or Kaggle and package your dataset for upload.</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/media/trainer-dashboard-light.jpg" alt="Dashboard in light mode" /></td>
+    <td width="50%"><img src="docs/media/trainer-error.jpg" alt="Training page showing a clear training failed message" /></td>
+  </tr>
+  <tr>
+    <td><b>Light mode</b><br/>Dark, light or follow the system.</td>
+    <td><b>Honest errors</b><br/>If training can't start or crashes, the reason and a fix are shown right away.</td>
+  </tr>
+</table>
 
-Double-click `start_windows.bat` (or `start.bat`) in File Explorer, or run in Command Prompt / PowerShell:
+<sub>Screenshots and the demo use sample data served by a local mock of the trainer API.</sub>
 
-```cmd
-start_windows.bat
+## 🚀 Get started
+
+1. **Install Python 3.12** from [python.org](https://www.python.org/downloads/) (3.10 to 3.13 work). In the installer, tick **Add python.exe to PATH**.
+2. **Download the trainer:** [download the ZIP](https://github.com/Project-Beatrice-V2/Beatrice-trainer-windows/archive/refs/heads/main.zip) and extract it, or clone it:
+   ```cmd
+   git clone https://github.com/Project-Beatrice-V2/Beatrice-trainer-windows.git
+   cd Beatrice-trainer-windows
+   ```
+3. **Double-click `start_windows.bat`** (or run it in Command Prompt). `start.bat` does the same.
+4. Your browser opens **http://127.0.0.1:8000**. Next time, just run `start_windows.bat` again.
+
+`start_windows.bat` creates a `venv`, installs PyTorch (the CUDA build when `nvidia-smi` finds an NVIDIA GPU, the cu128 wheels for RTX 50-series cards) and `requirements.txt`, downloads the trainer's pretrained weights from Hugging Face with `python server.py --setup`, then starts the server. The first run downloads about 3 GB, mostly PyTorch. If anything fails, the window stays open and shows the error.
+
+Optional environment variables: `BEATRICE_TORCH_INDEX=cu126|cu128|cpu` forces a PyTorch wheel index, `BEATRICE_NO_BROWSER=1` stops it opening a browser tab.
+
+> [!NOTE]
+> **An NVIDIA GPU with CUDA is recommended.** The upstream trainer notes that its default settings use about 9 GB of VRAM and finish in about 40 minutes on an RTX 4090; auto-tune lowers the batch size on smaller cards. Without an NVIDIA GPU, training runs on the CPU: it works, but it is very slow. The [cloud notebooks](https://github.com/Project-Beatrice-V2/Beatrice-colab) are a free alternative.
+
+## 🧩 How training works
+
+```mermaid
+flowchart LR
+  rec([🎙️ Recordings]) --> ds
+  subgraph trainer [Beatrice Trainer · 127.0.0.1:8000]
+    ds[Dataset<br/>beatrice-trainer/data/&lt;speaker&gt;] --> train[Training<br/>beatrice_trainer on CUDA or CPU]
+    train --> out[Model folder<br/>paraphernalia_*]
+  end
+  out -- Download ZIP --> zip([model .zip])
+  zip -- Upload Custom Model --> app([Beatrice voice changer])
 ```
 
-*For macOS / Linux systems:*
-```bash
-chmod +x start.sh
-./start.sh
+1. **Dataset.** Enter a speaker name and add WAV files (ZIPs are unpacked), or import a Hugging Face or Kaggle dataset. Files go to `beatrice-trainer/data/<speaker>/`.
+2. **Train.** Pick the speaker on the Training page. Auto-tune fills in batch size, gradient accumulation, workers and mixed precision for your PC; change them under *Advanced settings*. Press **Start training**.
+3. **Export.** When the run finishes, open **Models** and click **Download ZIP** next to the voice model. Checkpoints (`.pt.gz`) stay in `beatrice-trainer/output/<speaker>/`.
+4. **Use it.** In the [Beatrice voice changer](https://github.com/satiricalguru/Beatrice-voicechanger-windows), open the model menu, choose **Upload Custom Model** and pick the ZIP.
+
+## 💻 Requirements
+
+| | |
+|:--|:--|
+| **Windows** | Windows 10 or 11, 64-bit |
+| **GPU** | NVIDIA GPU with CUDA recommended. CPU-only training works but is very slow. |
+| **VRAM** | Upstream defaults use about 9 GB; auto-tune picks a smaller batch on 8 to 12 GB cards |
+| **Python** | 3.10 to 3.13 (3.12 recommended) |
+| **Disk** | About 3 GB for PyTorch and packages, plus the trainer weights (about 175 MB), datasets and checkpoints |
+
+<details>
+<summary><b>Troubleshooting</b></summary>
+<br/>
+
+**`start_windows.bat` closes immediately (fixed).**
+Older versions of the script used characters that `cmd.exe` can't parse inside `echo` lines and `if` blocks, so the window could vanish before showing anything. The current script avoids them and pauses on every error. Update (`git pull` or download the ZIP again). If a window still closes, open Command Prompt in the folder and run `start_windows.bat` there to read the output.
+
+**Training finished instantly, or said "complete" straight away (fixed).**
+Older versions quietly ran a stand-in "benchmark" loop when the real trainer couldn't start, so a run could look finished without training anything. That fallback is gone: the real trainer runs, and if it can't, the Training page shows **Training could not start** or **Training failed** with the reason. Update and run `start_windows.bat` again.
+
+**"The Beatrice trainer is not ready".**
+Weights or packages are missing. Run `start_windows.bat` again, or open **Settings** and click **Download or update trainer**.
+
+**Training runs on the CPU although you have an NVIDIA GPU.**
+Update the NVIDIA driver so `nvidia-smi` works, delete the `venv` folder and run `start_windows.bat` again. To force a wheel index, run `set BEATRICE_TORCH_INDEX=cu126` (or `cu128` for RTX 50-series) first.
+
+**"Python … is too old".**
+Install Python 3.12 from python.org with **Add python.exe to PATH** ticked, delete the `venv` folder and run `start_windows.bat` again.
+
+**Out of memory during training.**
+Lower **Batch size** under *Advanced settings* on the Training page, then start again.
+
+**The browser didn't open, or port 8000 is busy.**
+Open http://127.0.0.1:8000 yourself. To use another port, run `set BEATRICE_PORT=8001` before `start_windows.bat`.
+</details>
+
+<details>
+<summary><b>Project layout</b></summary>
+<br/>
+
 ```
-
-#### What the Startup Script Automates:
-1. Creates a local Python virtual environment (`venv/`).
-2. Installs CUDA-accelerated PyTorch (`torch` and `torchaudio` using the CUDA 12.1 wheel index).
-3. Installs backend dependencies (`fastapi`, `uvicorn`, `python-multipart`, `aiofiles`, `huggingface_hub`, `psutil`).
-4. Downloads the core **Beatrice Trainer** repository from Hugging Face (`fierce-cats/beatrice-trainer`).
-5. Launches the FastAPI backend server and automatically opens your browser at **`http://localhost:8000`**.
-
----
-
-## 🎮 Hardware Auto-Tuning Matrix
-
-When selecting a speaker dataset in the **Training** tab, the system profiles hardware to compute optimal hyperparameters:
-
-| Hardware Tier | GPU / VRAM | Batch Size | Grad Accum | Effective Batch | Workers | Mixed Precision |
-| :--- | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Ultra Enthusiast** | RTX 3090 / 4090 (24GB) | 16 | 1 | 16 | 4 | Enabled (FP16) |
-| **High Performance** | RTX 4080 / 3080 Ti (16GB) | 8 | 2 | 16 | 4 | Enabled (FP16) |
-| **Standard Gaming** | RTX 3060 / 4070 (12GB) | 4 | 4 | 16 | 2 | Enabled (FP16) |
-| **Entry Level GPU** | RTX 3060 8GB / 4060 (8GB) | 2 | 4 | 8 | 2 | Enabled (FP16) |
-| **CPU Fallback** | System CPU | 2 | 4 | 8 | 2 | Disabled |
-
----
-
-## 📂 Directory Structure
-
-```text
-├── assets/                          # App branding and logo assets
-│   └── logo.jpg                     # Official Project Beatrice V2 Logo
-├── colab_repo/                      # Cloned Beatrice-Colab repository
-│   ├── BeatriceV2_Trainer_Notebook_Colab.ipynb
-│   └── BeatriceV2_Trainer_Notebook_Kaggle.ipynb
-├── app.js                           # Client-side JavaScript application & UI handlers
-├── index.html                       # Modern HTML layout & component views
-├── index.css                        # Cyan Blue Design System & Light/Dark themes
-├── server.py                        # FastAPI backend server & REST endpoints
-├── start_windows.bat                # Automated Windows batch startup script
-├── start.bat                        # Batch launcher shortcut
-├── start.sh                         # Cross-platform shell startup script
-├── requirements.txt                 # Backend Python dependencies
-├── README.md                        # Documentation manual
-└── beatrice-trainer/                # Downloaded Hugging Face trainer files
+server.py           FastAPI server: API and the web UI on 127.0.0.1:8000
+index.html          Web UI layout
+index.css           The Aurora Void design system (dark and light)
+app.js              Web UI logic: datasets, training, models, settings
+fonts/              Geist and Geist Mono (SIL OFL)
+start_windows.bat   Sets up the venv, installs PyTorch and packages, downloads weights, starts the server
+start.bat           Same as start_windows.bat
+start.sh            The same steps for macOS and Linux
+beatrice-trainer/   The Beatrice trainer (fierce-cats/beatrice-trainer) plus webui_runner.py
+colab_repo/         The Colab and Kaggle notebooks
 ```
+</details>
 
----
+## 🌐 The Beatrice family
 
-## 🌐 API Endpoint Reference
+| | |
+|:--|:--|
+| 🪟 [Beatrice for Windows](https://github.com/satiricalguru/Beatrice-voicechanger-windows) | The real-time voice changer that uses your models |
+| 🍎 [Beatrice for Mac](https://github.com/satiricalguru/Beatrice-voicechanger-mac) | The same app for Apple Silicon Macs |
+| 🌍 [Website](https://project-beatrice.vercel.app) | Downloads, guides and voice samples |
+| 🧠 [Trainer for Mac](https://github.com/Project-Beatrice-V2/Beatrice-trainer-macos) · [Colab](https://github.com/Project-Beatrice-V2/Beatrice-colab) | Train on a Mac or in the cloud |
+| 📂 [Dataset Web UI](https://github.com/Project-Beatrice-V2/Beatrice-dataset-webui-windows) | Prepare recordings for training |
+| 🎭 [Voice models](https://github.com/Project-Beatrice-V2/Beatrice-voice-models) | Ready-made models to import |
 
-| Endpoint | Method | Description |
-| :--- | :---: | :--- |
-| `/api/status` | `GET` | System health check & backend availability |
-| `/api/system/memory` | `GET` | Live RAM, VRAM, and CPU usage metrics |
-| `/api/dataset/list` | `GET` | List available speaker datasets and file counts |
-| `/api/dataset/upload` | `POST` | Upload WAV or ZIP audio files |
-| `/api/dataset/import/hf` | `POST` | Download dataset directly from Hugging Face |
-| `/api/dataset/import/kaggle` | `POST` | Import dataset from Kaggle |
-| `/api/train/auto-tune` | `POST` | Compute optimal training hyperparameters |
-| `/api/train/start` | `POST` | Launch local model training process |
-| `/api/train/stop` | `POST` | Terminate active model training process |
-| `/api/models/list` | `GET` | List trained VST3 paraphernalia voice models |
+## 🙏 Credits
 
----
+- **Beatrice trainer** by Project Beatrice: [fierce-cats/beatrice-trainer](https://huggingface.co/fierce-cats/beatrice-trainer) (MIT)
+- **Beatrice engine** by [prj-beatrice](https://github.com/prj-beatrice/beatrice-vst)
+- **Geist** and **Geist Mono** by Vercel (SIL Open Font License, see `fonts/OFL-Geist.txt`)
 
-## 📄 License
+## 📜 License
 
-This project is licensed under the [MIT License](LICENSE).
+The web UI and server are **MIT** licensed, © 2026 Project Beatrice V2 (see [LICENSE](LICENSE)). The Beatrice trainer in `beatrice-trainer/` is MIT licensed by Project Beatrice; the fonts are under the SIL Open Font License.
+
+<div align="center">
+<br/>
+
+**If you trained a voice you love, ⭐ star the repo, it really helps.**
+
+<a href="#beatrice-trainer-for-windows">Back to top ↑</a>
+
+</div>
