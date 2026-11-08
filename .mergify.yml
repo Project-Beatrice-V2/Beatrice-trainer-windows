@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://docs.mergify.com/mergify-configuration-schema.json
+pull_request_rules:
+  - name: Squash an approved README-only PR when a maintainer opts in
+    disabled:
+      reason: Enable after main has required reviews and checks, and the app is installed without bypass access.
+    conditions:
+      - base = main
+      - -draft
+      - label = automerge:docs
+      - -author = dependabot[bot]
+      - "#files = 1"
+      - files = README.md
+      - "#approved-reviews-by >= 1"
+      - "#changes-requested-reviews-by = 0"
+      - "#commits-behind = 0"
+      - "#check-failure = 0"
+      - check-success = @github-actions/Trainer verification
+      - check-success = @github-actions/Review policy
+      - check-success = @github-actions/CodeQL analysis
+      - check-success = @github-advanced-security/CodeQL
+      - check-success = @github-actions/Dependency review
+    actions:
+      merge:
+        method: squash
