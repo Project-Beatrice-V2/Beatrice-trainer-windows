@@ -1,3 +1,5 @@
+[![CI](https://github.com/Project-Beatrice-V2/Beatrice-trainer-windows/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Project-Beatrice-V2/Beatrice-trainer-windows/actions/workflows/ci.yml) [![CodeQL](https://github.com/Project-Beatrice-V2/Beatrice-trainer-windows/actions/workflows/codeql.yml/badge.svg?branch=main)](https://github.com/Project-Beatrice-V2/Beatrice-trainer-windows/actions/workflows/codeql.yml) [![PR policy](https://github.com/Project-Beatrice-V2/Beatrice-trainer-windows/actions/workflows/pr-policy.yml/badge.svg?event=pull_request)](https://github.com/Project-Beatrice-V2/Beatrice-trainer-windows/actions/workflows/pr-policy.yml)
+
 <div align="center">
 
 <img src="docs/media/app-icon.png" alt="Beatrice app icon" width="128" />
@@ -187,3 +189,7 @@ The web UI and server are **MIT** licensed, © 2026 Project Beatrice V2 (see [LI
 <a href="#beatrice-trainer-for-windows">Back to top ↑</a>
 
 </div>
+
+## Repository automation
+
+See the [organization automation guide](https://github.com/Project-Beatrice-V2/.github/blob/main/docs/automation.md) for checks, contribution policies, and integration setup.

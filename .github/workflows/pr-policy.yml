@@ -1,0 +1,59 @@
+name: PR policy
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize, edited, ready_for_review]
+
+permissions: {}
+
+concurrency:
+  group: pr-policy-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  policy:
+    name: Review policy
+    if: '!github.event.pull_request.draft'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const title = pr.title.trim();
+            const description = (pr.body ?? '')
+              .replace(/<!--[\s\S]*?-->/g, '')
+              .split('\n')
+              .filter(line => !/^\s*(?:#|[-*] \[)/.test(line))
+              .join(' ')
+              .trim();
+
+            if (pr.user.type !== 'Bot') {
+              if (title.length < 8 || /^(?:draft|wip)(?:\b|:)/i.test(title)) {
+                core.setFailed('Use a descriptive PR title and keep unfinished work in draft.');
+              }
+              if (description.length < 15) {
+                core.setFailed('Describe the change and how you verified it in the PR body.');
+              }
+            }
+
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              ...context.repo,
+              pull_number: pr.number,
+              per_page: 100
+            });
+            const paths = files.flatMap(file => [file.filename, file.previous_filename].filter(Boolean));
+            const tests = /(^|\/)(tests?|__tests__)(\/|$)|(?:^|\/)test_[^/]+\.py$|\.(?:test|spec)\.[cm]?[jt]sx?$/i;
+            const source = /\.(?:[cm]?[jt]sx?|py|c|h|css|html|ipynb|sh|ps1|bat)$/i;
+            const risk = /(^\.github\/|(?:^|\/)(?:package(?:-lock)?\.json|(?:uv|poetry)\.lock|requirements[^/]*\.txt|pyproject\.toml|vercel\.json|(?:start|setup)[^/]*\.(?:sh|ps1|bat))$|\.(?:dll|exe|vst3|bin|zip)$)/i;
+
+            if (paths.some(path => source.test(path) && !tests.test(path)) && !paths.some(path => tests.test(path))) {
+              core.warning('Source changed without a test change. Add coverage where practical or describe manual verification.');
+            }
+            if (paths.some(path => risk.test(path)) || files.length < pr.changed_files) {
+              core.warning('Review dependency, automation, installer and binary changes with extra care.');
+            }
