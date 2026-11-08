@@ -13,10 +13,12 @@ pull_request_rules:
       - "#approved-reviews-by >= 1"
       - "#changes-requested-reviews-by = 0"
       - "#commits-behind = 0"
-      - check-success = Trainer verification
-      - check-success = Review policy
-      - check-success = CodeQL analysis
-      - check-success = Dependency review
+      - "#check-failure = 0"
+      - check-success = @github-actions/Trainer verification
+      - check-success = @github-actions/Review policy
+      - check-success = @github-actions/CodeQL analysis
+      - check-success = @github-advanced-security/CodeQL
+      - check-success = @github-actions/Dependency review
     actions:
       merge:
         method: squash
